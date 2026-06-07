@@ -32,16 +32,16 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
-  // Enforced Redirection Logic: Ensures Super Admin sees the dashboard first
+  // Robust Redirection Logic: Ensures Super Admin is prioritized
   useEffect(() => {
-    if (!profileLoading) {
+    if (!profileLoading && user && view === null) {
       if (profile?.role === "admin") {
         setView("admin");
-      } else if (user) {
+      } else {
         setView("seller");
       }
     }
-  }, [profile, profileLoading, user]);
+  }, [profile, profileLoading, user, view]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
