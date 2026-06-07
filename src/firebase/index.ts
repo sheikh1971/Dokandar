@@ -3,6 +3,7 @@
 
 /**
  * @fileOverview Standard Firebase initialization with persistence and security rule triggers.
+ * Updated to ensure rules deployment watcher is triggered.
  */
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
