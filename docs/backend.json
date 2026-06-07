@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -52,15 +53,15 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Stores user roles and profile details. Users can read and write their own profile."
+      "description": "Stores user roles and profile details. Users are allowed to read and write their own profile document where {userId} matches their authentication UID."
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Global collection of sales transactions. Accessible by sellers for creation and owners for analysis."
+      "description": "Global collection of sales transactions. Accessible by sellers for creation and owners for analysis. Sellers can create sales, owners can read all sales."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Global collection of business expenses. Accessible by sellers for recording and owners for review."
+      "description": "Global collection of business expenses. Accessible by sellers for recording and owners for review. Sellers can create expenses, owners can read all expenses."
     }
   }
 }
