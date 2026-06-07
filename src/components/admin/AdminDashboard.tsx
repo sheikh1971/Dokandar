@@ -79,7 +79,6 @@ export function AdminDashboard() {
 
   const productsQuery = useMemo(() => {
     if (!firestore) return null;
-    // Products are public read, so this can fire anytime
     return query(collection(firestore, "products"), orderBy("name", "asc"));
   }, [firestore]);
 
@@ -96,41 +95,6 @@ export function AdminDashboard() {
       case "monthly": filterDate = startOfMonth(now); break;
       case "yearly": filterDate = startOfYear(now); break;
       default: filterDate = new Date(0);
-    }
-
-    // IF NOT LOGGED IN, Provide high-fidelity Mock Data for the "Building Phase"
-    if (!user) {
-      const mockSales = Array.from({ length: 15 }).map((_, i) => ({
-        id: `MOCK-SALE-${i}`,
-        total: Math.floor(Math.random() * 2000) + 500,
-        sellerName: "System Agent",
-        timestamp: { toDate: () => subDays(now, i) },
-        items: [{ name: "Demo Product", qty: 2 }]
-      }));
-      
-      const mockExpenses = Array.from({ length: 5 }).map((_, i) => ({
-        id: `MOCK-EXP-${i}`,
-        amount: Math.floor(Math.random() * 500) + 100,
-        category: "Operational",
-        description: "Building Phase Mock",
-        timestamp: { toDate: () => subDays(now, i * 2) }
-      }));
-
-      const totalRevenue = mockSales.reduce((acc, s) => acc + s.total, 0);
-      const totalExpenses = mockExpenses.reduce((acc, e) => acc + e.amount, 0);
-
-      const chartData = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => ({
-        name: day,
-        sales: Math.floor(Math.random() * 5000) + 1000
-      }));
-
-      return { 
-        totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses,
-        salesCount: mockSales.length, expensesCount: mockExpenses.length,
-        sales: mockSales, expenses: mockExpenses,
-        chartData, teamStats: [{ name: "Demo Seller", total: totalRevenue, count: mockSales.length }],
-        isMock: true
-      };
     }
 
     const filteredSales = rawSales?.filter(s => {
@@ -172,10 +136,9 @@ export function AdminDashboard() {
       expensesCount: filteredExpenses.length,
       sales: filteredSales,
       expenses: filteredExpenses,
-      chartData, teamStats,
-      isMock: false
+      chartData, teamStats
     };
-  }, [rawSales, rawExpenses, period, user]);
+  }, [rawSales, rawExpenses, period]);
 
   const handleAddProduct = () => {
     if (!firestore || !newProductName || !newProductPrice) return;
@@ -213,18 +176,12 @@ export function AdminDashboard() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck className="text-secondary" size={20} />
-            <h2 className="text-2xl font-black font-headline tracking-tighter uppercase">SUPER ADMIN <span className="text-primary">PORTAL</span></h2>
+            <h2 className="text-2xl font-black font-headline tracking-tighter uppercase">SUPER ADMIN <span className="text-primary">COMMAND CENTER</span></h2>
           </div>
           <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Global Shop Forensics & Supply Intelligence</p>
         </div>
         
         <div className="flex items-center gap-3">
-          {stats.isMock && (
-            <div className="hidden lg:flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 px-4 py-2 rounded-2xl animate-pulse">
-              <Zap className="text-yellow-500" size={14} />
-              <span className="text-[9px] font-black text-yellow-600 uppercase tracking-widest">Building Phase: Simulating Data</span>
-            </div>
-          )}
           <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
             <SelectTrigger className="w-[140px] h-10 rounded-2xl border-border bg-muted font-black text-[10px] uppercase">
               <SelectValue />

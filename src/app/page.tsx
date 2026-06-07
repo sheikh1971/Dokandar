@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -28,7 +29,7 @@ export default function Home() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [authRole, setAuthRole] = useState<"admin" | "seller">("seller");
+  const [authRole, setAuthRole] = useState<"admin" | "seller">("admin");
   const [isSignUp, setIsSignUp] = useState(false);
 
   const userProfileQuery = useMemo(() => {
@@ -46,6 +47,7 @@ export default function Home() {
     try {
       if (isSignUp) {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // Provision the role immediately in Firestore
         await setDoc(doc(firestore, "users", cred.user.uid), {
           uid: cred.user.uid,
           email: email,
@@ -54,7 +56,7 @@ export default function Home() {
         });
         toast({
           title: "Identity Provisioned",
-          description: `Access granted as ${authRole.toUpperCase()}.`,
+          description: `Access granted as ${authRole === 'admin' ? 'SUPER ADMIN' : 'SELLER'}.`,
         });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
@@ -110,8 +112,8 @@ export default function Home() {
               <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
             </div>
             <div className="space-y-1">
-              <h2 className="font-headline text-3xl font-black uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h2>
-              <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Smart Business Entry Terminal</p>
+              <h2 className="font-headline text-2xl font-black uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h2>
+              <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Secure Business Intelligence Terminal</p>
             </div>
           </div>
 
@@ -152,8 +154,8 @@ export default function Home() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-border">
-                  <SelectItem value="seller" className="font-black text-[10px] uppercase tracking-widest">Seller / Staff Portal</SelectItem>
                   <SelectItem value="admin" className="font-black text-[10px] uppercase tracking-widest text-primary">Super Admin / Owner</SelectItem>
+                  <SelectItem value="seller" className="font-black text-[10px] uppercase tracking-widest">Seller / Staff Portal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -172,7 +174,7 @@ export default function Home() {
             >
               {isSignUp ? "Switch to Secure Login" : "New Terminal? Register Role"}
             </button>
-            <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">System Node: SECURE-LEDGER-V2</p>
+            <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">System Architecture: Cloud Native Intelligence</p>
           </div>
         </div>
       </div>
