@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
@@ -11,6 +12,9 @@ import {
 } from 'firebase/firestore';
 import { firebaseConfig } from './config';
 
+/**
+ * Initializes Firebase with production services and enables persistent local cache.
+ */
 export function initializeFirebase(): {
   app: FirebaseApp;
   auth: Auth;

@@ -53,7 +53,7 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Users can only read and write their own profile document if their UID matches {userId}."
+      "description": "Users can read and write their own profile document if their UID matches the document ID."
     },
     "/sales/{saleId}": {
       "schema": "Sale",
