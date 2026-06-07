@@ -147,7 +147,7 @@ export function OwnerDashboard() {
             <ShieldCheck className="text-secondary" size={20} />
             <h2 className="text-2xl font-black font-headline tracking-tighter uppercase">SUPER ADMIN <span className="text-primary">PORTAL</span></h2>
           </div>
-          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Advanced Financial Command & Insights</p>
+          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Global Financial Intelligence & Performance Metrics</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
@@ -158,9 +158,9 @@ export function OwnerDashboard() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="weekly">Weekly View</SelectItem>
+                <SelectItem value="weekly">Weekly Analysis</SelectItem>
                 <SelectItem value="monthly">Monthly Cycle</SelectItem>
-                <SelectItem value="yearly">Annual View</SelectItem>
+                <SelectItem value="yearly">Annual Overview</SelectItem>
                 <SelectItem value="all">Full History</SelectItem>
               </SelectContent>
             </Select>
@@ -172,7 +172,7 @@ export function OwnerDashboard() {
             disabled={isAiLoading}
            >
               <BrainCircuit className="mr-2" size={16} /> 
-              {isAiLoading ? "Processing..." : "Forensic Analysis"}
+              {isAiLoading ? "Processing Intelligence..." : "Neural Forensic Analysis"}
            </Button>
         </div>
       </div>
@@ -241,9 +241,9 @@ export function OwnerDashboard() {
         <Card className="glass-morphism border-t-4 border-secondary shadow-xl flex flex-col">
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-black flex items-center gap-2 text-secondary uppercase tracking-[0.2em]">
-              <BrainCircuit size={18} /> AI INSIGHTS
+              <BrainCircuit size={18} /> AI COMMAND INSIGHTS
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase">Automated Financial Summarization</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase">Automated Financial Intelligence</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto px-6">
             {aiSummary ? (
@@ -258,9 +258,9 @@ export function OwnerDashboard() {
                   <BrainCircuit className="text-secondary/20 w-10 h-10" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Intelligence Standby</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Neural Engine Standby</p>
                   <p className="text-[9px] text-muted-foreground/60 max-w-[200px] font-bold leading-normal uppercase text-center">
-                    Run analysis to extract performance patterns from {period} data.
+                    Initiate forensic analysis to extract performance patterns from {period} datasets.
                   </p>
                 </div>
               </div>
@@ -273,7 +273,7 @@ export function OwnerDashboard() {
         <Card className="glass-morphism shadow-lg border-t-4 border-destructive">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-destructive/5 py-4">
             <CardTitle className="text-xs font-black text-destructive uppercase tracking-[0.2em] flex items-center gap-2">
-              <AlertTriangle size={18} /> Outflow Logs
+              <AlertTriangle size={18} /> Outflow Monitoring
             </CardTitle>
             <PieChartIcon size={18} className="text-destructive/30" />
           </CardHeader>
@@ -288,7 +288,7 @@ export function OwnerDashboard() {
                   <span className="text-xs font-black text-destructive">-৳{exp.amount?.toLocaleString()}</span>
                 </div>
               ))}
-              {!stats.expenses.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No records</p>}
+              {!stats.expenses.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No records detected</p>}
             </div>
           </CardContent>
         </Card>
@@ -296,7 +296,7 @@ export function OwnerDashboard() {
         <Card className="glass-morphism shadow-lg border-t-4 border-primary">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-primary/5 py-4">
             <CardTitle className="text-xs font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-              <Users size={18} /> Team Performance
+              <Users size={18} /> Seller Performance
             </CardTitle>
             <Briefcase size={18} className="text-primary/30" />
           </CardHeader>
@@ -306,12 +306,12 @@ export function OwnerDashboard() {
                 <div key={i} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-primary/5 transition-colors">
                   <div>
                     <p className="text-[10px] font-black uppercase text-foreground">{tm.name}</p>
-                    <p className="text-[8px] text-muted-foreground font-bold uppercase">{tm.count} Sales Processed</p>
+                    <p className="text-[8px] text-muted-foreground font-bold uppercase">{tm.count} Orders Processed</p>
                   </div>
                   <span className="text-xs font-black text-primary">৳{tm.total.toLocaleString()}</span>
                 </div>
               ))}
-              {!stats.teamStats.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No activity</p>}
+              {!stats.teamStats.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No active seller data</p>}
             </div>
           </CardContent>
         </Card>
@@ -324,8 +324,8 @@ export function OwnerDashboard() {
           </CardHeader>
           <CardContent className="space-y-6 pt-6 px-6">
              <VelocityItem label="Margin Efficiency" value={stats.totalRevenue > 0 ? 100 - Math.floor((stats.totalExpenses / stats.totalRevenue) * 100) : 0} />
-             <VelocityItem label="Growth trajectory" value={78} />
-             <VelocityItem label="Retention Rating" value={65} />
+             <VelocityItem label="Growth Trajectory" value={78} />
+             <VelocityItem label="System Reliability" value={99} />
           </CardContent>
         </Card>
       </div>
@@ -356,7 +356,7 @@ function StatCard({ title, value, subtitle, trend, icon, color }: any) {
           trend === 'up' ? 'bg-primary/10 text-primary' : trend === 'down' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
         }`}>
           {trend !== 'none' && getTrendIcon()}
-          {trend === 'up' ? 'Gain' : trend === 'down' ? 'Loss' : 'Flat'}
+          {trend === 'up' ? 'Gain' : trend === 'down' ? 'Loss' : 'Stable'}
         </div>
       </div>
       <div className="mt-6 relative z-10">

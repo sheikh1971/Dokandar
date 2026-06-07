@@ -33,7 +33,7 @@ export default function Home() {
 
   const [view, setView] = useState<"seller" | "admin">("seller");
 
-  // Robust redirection logic: Force Admin view if role is 'admin'
+  // Robust redirection logic: Prioritize Admin Portal if role is 'admin'
   useEffect(() => {
     if (profile?.role === "admin") {
       setView("admin");
@@ -50,13 +50,13 @@ export default function Home() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
-        title: "Access Granted",
-        description: "Identity verified. System active.",
+        title: "Super Admin Identity Verified",
+        description: "Access granted to secure systems.",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Security Alert",
+        title: "Authorization Failed",
         description: "Invalid credentials detected.",
       });
     } finally {
@@ -71,8 +71,8 @@ export default function Home() {
     try {
       await signInWithPopup(auth, provider);
       toast({
-        title: "Auth Success",
-        description: "Google identity verified.",
+        title: "Identity Verified",
+        description: "Google credentials accepted.",
       });
     } catch (error: any) {
       toast({
@@ -100,7 +100,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Permissions...</p>
+          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Synchronizing Secure Data...</p>
         </div>
       </div>
     );
@@ -127,7 +127,7 @@ export default function Home() {
           <div className="space-y-6 relative z-10">
             <form onSubmit={handleEmailAuth} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Access Identity</Label>
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Access Identity (Email)</Label>
                 <div className="relative group">
                   <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                   <Input 
@@ -142,7 +142,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Secure Key</Label>
+                <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Secure Key (Password)</Label>
                 <div className="relative group">
                   <Lock className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                   <Input 
@@ -183,7 +183,7 @@ export default function Home() {
 
             <div className="bg-muted/50 p-4 rounded-xl border border-border">
               <p className="text-center text-[8px] text-muted-foreground leading-relaxed uppercase font-black tracking-widest">
-                Permissions are managed centrally. Contact your administrator if your role is not recognized.
+                Super Admin permissions must be set manually in the Firebase console for specific UIDs.
               </p>
             </div>
           </div>
@@ -227,7 +227,7 @@ export default function Home() {
                 }`}
               >
                 <LayoutDashboard className="mr-2" size={14} />
-                ADMIN
+                SUPER ADMIN
               </Button>
             </div>
           )}
