@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { SellerPortal } from "@/components/seller/SellerPortal";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,9 @@ import {
   ShieldAlert, 
   User as UserIcon, 
   LogIn, 
-  ShieldCheck 
+  ShieldCheck,
+  Building2,
+  Users
 } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
@@ -52,12 +54,15 @@ export default function Home() {
       if (isSignUp) {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         // Provision the role immediately in Firestore as a strict condition
-        await setDoc(doc(firestore, "users", cred.user.uid), {
+        const profileData = {
           uid: cred.user.uid,
           email: email,
           role: authRole,
-          displayName: email.split('@')[0]
-        });
+          displayName: email.split('@')[0],
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(doc(firestore, "users", cred.user.uid), profileData);
+        
         toast({
           title: "Identity Provisioned",
           description: `Access granted as ${authRole === 'admin' ? 'SUPER ADMIN' : 'SELLER'}.`,
@@ -66,7 +71,7 @@ export default function Home() {
         await signInWithEmailAndPassword(auth, email, password);
         toast({
           title: "Authorization Success",
-          description: "Credentials verified. Accessing Terminal.",
+          description: "Credentials verified. Accessing Command Terminal.",
         });
       }
     } catch (error: any) {
@@ -91,28 +96,33 @@ export default function Home() {
     }
   };
 
+  // Loading State
   if (authLoading || (user && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Syncing Smart Node...</p>
+          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Syncing Intelligence Node...</p>
         </div>
       </div>
     );
   }
 
-  // LOGIN TERMINAL
+  // LOGIN / SIGNUP GATE
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-6">
+      <div className="min-h-screen flex items-center justify-center bg-background px-6 relative overflow-hidden">
+        {/* Decorative Background Elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 rounded-full blur-[120px]" />
+
         <div className="max-w-md w-full glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 border-primary shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-          <div className="absolute top-0 right-0 p-4 opacity-5">
+          <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
             <ShieldAlert size={120} />
           </div>
           
           <div className="text-center space-y-3 relative z-10">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg transform hover:rotate-12 transition-transform duration-500">
               <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
             </div>
             <div className="space-y-1">
@@ -151,17 +161,26 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Role Selection (Only during Sign Up) */}
             {isSignUp && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 bg-muted/20 p-4 rounded-2xl border border-border/50">
-                 <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Super Admin Access</Label>
-                    <Switch 
-                      checked={authRole === "admin"} 
-                      onCheckedChange={(checked) => setAuthRole(checked ? "admin" : "seller")}
-                    />
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 bg-muted/20 p-5 rounded-2xl border border-border/50">
+                 <div className="flex items-center justify-between mb-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      {authRole === 'admin' ? <Building2 size={12} className="text-primary" /> : <Users size={12} className="text-primary" />}
+                      Portal Access Role
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'seller' ? 'text-primary' : 'text-muted-foreground'}`}>Seller</span>
+                      <Switch 
+                        checked={authRole === "admin"} 
+                        onCheckedChange={(checked) => setAuthRole(checked ? "admin" : "seller")}
+                        className="data-[state=checked]:bg-primary"
+                      />
+                      <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'admin' ? 'text-primary' : 'text-muted-foreground'}`}>Admin</span>
+                    </div>
                  </div>
                  <p className="text-[8px] text-primary font-black uppercase tracking-[0.2em] text-center border-t border-border/30 pt-3">
-                    {authRole === 'admin' ? 'Elevated Privileges Active' : 'Standard POS Access Only'}
+                    {authRole === 'admin' ? 'ELEVATED PRIVILEGES: SUPER ADMIN' : 'STANDARD POS ACCESS: SELLER'}
                  </p>
               </div>
             )}
@@ -189,7 +208,7 @@ export default function Home() {
 
   // MAIN PORTAL ROUTING (STRICT ROLE CONDITION)
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground animate-in fade-in duration-1000">
       <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80 shadow-sm backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
