@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 
 export const metadata: Metadata = {
-  title: 'DokanHishab | Smart Business Ledger',
+  title: 'Dokandar | Smart Business Ledger',
   description: 'Futuristic business management for smart shop owners.',
 };
 

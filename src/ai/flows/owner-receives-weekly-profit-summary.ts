@@ -97,7 +97,7 @@ const weeklyProfitSummaryPrompt = ai.definePrompt({
   output: {
     schema: ReceiveWeeklyProfitSummaryOutputSchema,
   },
-  system: `You are an AI financial analyst for DokanHishab, a small business. Your task is to provide a concise, natural language summary of the weekly financial performance, highlighting profit trends and identifying potential areas of financial leakage. Be insightful and actionable.`,
+  system: `You are an AI financial analyst for Dokandar, a small business. Your task is to provide a concise, natural language summary of the weekly financial performance, highlighting profit trends and identifying potential areas of financial leakage. Be insightful and actionable.`,
   prompt: `Generate a financial summary for the week from {{{startDate}}} to {{{endDate}}}.
 
 ### Weekly Financial Data:

@@ -194,7 +194,7 @@ export default function Home() {
             </div>
             <div className="space-y-1">
               <h2 className="font-headline text-2xl font-black uppercase tracking-tighter">
-                DOKAN<span className={isSignUp ? 'text-secondary' : 'text-primary'}>HISHAB</span>
+                DOKAN<span className={isSignUp ? 'text-secondary' : 'text-primary'}>DAR</span>
               </h2>
               <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">
                 {isSignUp ? "New Identity Provisioning" : "Mandatory Auth Required"}
@@ -354,7 +354,7 @@ export default function Home() {
             <Zap className="text-primary-foreground fill-primary-foreground" size={20} />
           </div>
           <h1 className="font-headline text-2xl tracking-tight font-black hidden sm:block uppercase">
-            DOKAN<span className="text-primary">HISHAB</span>
+            DOKAN<span className="text-primary">DAR</span>
           </h1>
         </div>
 
