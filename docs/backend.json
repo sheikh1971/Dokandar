@@ -53,15 +53,15 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Owners and the user matching {userId} can read and write this profile."
+      "description": "Users can only read and write their own profile document if their UID matches {userId}."
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Authenticated users can create sales. Owners can read all sales."
+      "description": "Any authenticated user can create a sale. Owners can read all sales."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Authenticated users can create expenses. Owners can read all expenses."
+      "description": "Any authenticated user can create an expense. Owners can read all expenses."
     }
   }
 }

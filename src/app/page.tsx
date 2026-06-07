@@ -21,6 +21,7 @@ export default function Home() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [hostname, setHostname] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -41,10 +42,11 @@ export default function Home() {
   };
 
   // Memoize user profile query to prevent infinite render loops
+  // Delay query if we are currently in the middle of creating the profile
   const userProfileQuery = useMemo(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || isCreatingProfile) return null;
     return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
+  }, [firestore, user, isCreatingProfile]);
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
@@ -60,6 +62,7 @@ export default function Home() {
   const handleLogin = async () => {
     if (!auth || !firestore) return;
     setAuthError(null);
+    setIsCreatingProfile(true);
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -91,6 +94,8 @@ export default function Home() {
           description: error.message || "An unexpected error occurred during login."
         });
       }
+    } finally {
+      setIsCreatingProfile(false);
     }
   };
 
@@ -98,7 +103,7 @@ export default function Home() {
     if (auth) signOut(auth);
   };
 
-  if (authLoading || (user && profileLoading)) {
+  if (authLoading || (user && profileLoading) || isCreatingProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
