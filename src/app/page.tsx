@@ -23,6 +23,7 @@ export default function Home() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [hostname, setHostname] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [uidCopied, setUidCopied] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Email login state
@@ -43,6 +44,18 @@ export default function Home() {
       toast({
         title: "Domain Copied",
         description: "Now paste it in Firebase Console -> Auth -> Settings -> Authorized Domains",
+      });
+    }
+  };
+
+  const copyUidToClipboard = (uid: string) => {
+    if (typeof navigator !== 'undefined') {
+      navigator.clipboard.writeText(uid);
+      setUidCopied(true);
+      setTimeout(() => setUidCopied(false), 2000);
+      toast({
+        title: "UID Copied",
+        description: "Use this Document ID in the 'users' collection.",
       });
     }
   };
@@ -71,7 +84,7 @@ export default function Home() {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Welcome Back",
-        description: `Logged in to Seller Portal`,
+        description: `Logged in to Portal`,
       });
     } catch (error: any) {
       if (error.code === "auth/unauthorized-domain") {
@@ -196,7 +209,7 @@ export default function Home() {
                     fill="#EA4335"
                   />
                 </svg>
-                Sign in as Seller
+                Sign in with Google
               </Button>
 
               <div className="flex items-center gap-4 py-2">
@@ -207,7 +220,7 @@ export default function Home() {
 
               <form onSubmit={handleEmailAuth} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Seller Email</Label>
+                  <Label htmlFor="email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 text-muted-foreground" size={16} />
                     <Input 
@@ -237,7 +250,7 @@ export default function Home() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full py-6 font-bold rounded-2xl">
-                  Seller Login
+                  Login to Portal
                 </Button>
                 <p className="text-center text-[10px] text-muted-foreground mt-4 italic">
                   Credentials provided by Admin.
@@ -259,10 +272,26 @@ export default function Home() {
           </div>
           <h2 className="text-2xl font-bold">Access Restricted</h2>
           <p className="text-muted-foreground">
-            Your account ({user.email}) is not yet registered in the system. 
-            Please ask the Super Admin to add your profile.
+            Your account ({user.email}) is authenticated but not yet registered in our database. 
+            Please contact the Super Admin to enable your profile.
           </p>
-          <Button variant="outline" onClick={handleLogout} className="w-full">
+
+          <div className="bg-muted p-4 rounded-2xl text-left space-y-2 border border-border">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Manual Setup Info</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-[10px] break-all font-mono bg-background p-2 rounded border border-border">
+                {user.uid}
+              </code>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => copyUidToClipboard(user.uid)}>
+                {uidCopied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+              </Button>
+            </div>
+            <p className="text-[9px] text-muted-foreground italic">
+              Create a document in the `users` collection with the UID above as the ID.
+            </p>
+          </div>
+
+          <Button variant="outline" onClick={handleLogout} className="w-full rounded-2xl py-6 font-bold">
             Logout & Try Another Account
           </Button>
         </div>
