@@ -7,7 +7,7 @@ import { OwnerDashboard } from "@/components/OwnerDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, ShoppingBag, Zap, LogOut, AlertCircle, Copy, Check, Mail, Lock } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Zap, LogOut, AlertCircle, Copy, Check, Mail, Lock, CheckCircle2 } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -94,7 +94,7 @@ export default function Home() {
         toast({
           variant: "destructive",
           title: "Authentication Error",
-          description: "Invalid email or password. Please contact Admin."
+          description: "Invalid email or password. Access is restricted to accounts created by the Admin."
         });
       }
     } finally {
@@ -165,7 +165,7 @@ export default function Home() {
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-xl font-bold text-foreground">Seller Portal</h2>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold mt-1">Authorized Access Only</p>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold mt-1 tracking-widest">Authorized Access Only</p>
             </div>
 
             {authError === "unauthorized-domain" && (
@@ -203,7 +203,7 @@ export default function Home() {
 
               <div className="flex items-center gap-4 py-2">
                 <Separator className="flex-1" />
-                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">or login with credentials</span>
+                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">or sign in with password</span>
                 <Separator className="flex-1" />
               </div>
 
@@ -241,8 +241,8 @@ export default function Home() {
                 <Button type="submit" className="w-full py-7 font-bold rounded-2xl text-md shadow-md hover:scale-[1.01] transition-all">
                   Sign In to System
                 </Button>
-                <p className="text-center text-[10px] text-muted-foreground mt-4 italic">
-                  Credentials provided by Admin in the Firebase console.
+                <p className="text-center text-[9px] text-muted-foreground mt-4 italic leading-relaxed">
+                  Accounts must be pre-authorized in the Firebase backend by the Admin.
                 </p>
               </form>
             </div>
@@ -347,5 +347,3 @@ export default function Home() {
     </div>
   );
 }
-
-import { CheckCircle2 } from "lucide-react";
