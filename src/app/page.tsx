@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { SellerInterface } from "@/components/SellerInterface";
 import { OwnerDashboard } from "@/components/OwnerDashboard";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, ShoppingBag, Zap, LogIn, LogOut, AlertCircle } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Zap, LogIn, LogOut, AlertCircle, Copy, Check } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -19,12 +19,25 @@ export default function Home() {
   
   const [authError, setAuthError] = useState<string | null>(null);
   const [hostname, setHostname] = useState<string>("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setHostname(window.location.hostname);
     }
   }, []);
+
+  const copyToClipboard = () => {
+    if (typeof navigator !== 'undefined') {
+      navigator.clipboard.writeText(hostname);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({
+        title: "Domain Copied",
+        description: "Now paste it in Firebase Console -> Auth -> Settings -> Authorized Domains",
+      });
+    }
+  };
 
   // Track profile role
   const userProfileQuery = user ? doc(firestore!, "users", user.uid) : null;
@@ -56,14 +69,15 @@ export default function Home() {
       }, { merge: true });
 
     } catch (error: any) {
-      console.error(error);
-      if (error.code === "auth/unauthorized-domain") {
+      console.error("Login Error:", error);
+      // Catching both code and message variants
+      if (error.code === "auth/unauthorized-domain" || (error.message && error.message.includes("unauthorized-domain"))) {
         setAuthError("unauthorized-domain");
       } else {
         toast({
           variant: "destructive",
           title: "Login Failed",
-          description: error.message
+          description: error.message || "An unexpected error occurred during login."
         });
       }
     }
@@ -97,20 +111,29 @@ export default function Home() {
           </div>
 
           {authError === "unauthorized-domain" && (
-            <Alert variant="destructive" className="text-left bg-destructive/5 border-destructive/20">
+            <Alert variant="destructive" className="text-left bg-destructive/5 border-destructive/20 relative overflow-hidden">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle className="font-bold">Unauthorized Domain</AlertTitle>
-              <AlertDescription className="text-xs space-y-2">
-                <p>Firebase is blocking this login. Please add this domain to your Authorized Domains in the Firebase Console:</p>
-                <div className="bg-destructive/10 p-2 rounded font-mono text-[10px] break-all border border-destructive/20">
-                  {hostname}
+              <AlertDescription className="text-xs space-y-3">
+                <p>Firebase is blocking this login. You must add your current domain to the list of authorized domains in the Firebase Console.</p>
+                
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-destructive/10 p-2 rounded font-mono text-[10px] break-all border border-destructive/20 select-all">
+                    {hostname}
+                  </div>
+                  <Button size="icon" variant="outline" className="h-8 w-8 shrink-0 bg-background hover:bg-muted" onClick={copyToClipboard}>
+                    {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+                  </Button>
                 </div>
-                <p>Go to: Authentication &gt; Settings &gt; Authorized Domains</p>
+                
+                <div className="pt-2 text-[10px] opacity-80 italic leading-relaxed">
+                  Steps: Firebase Console &gt; Authentication &gt; Settings &gt; Authorized Domains &gt; Add Domain
+                </div>
               </AlertDescription>
             </Alert>
           )}
 
-          <Button onClick={handleLogin} className="w-full py-6 text-lg font-bold rounded-2xl shadow-md" size="lg">
+          <Button onClick={handleLogin} className="w-full py-6 text-lg font-bold rounded-2xl shadow-md transition-all active:scale-95" size="lg">
             <LogIn className="mr-2" /> Continue with Google
           </Button>
         </div>
