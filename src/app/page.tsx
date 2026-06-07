@@ -31,11 +31,11 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
-  const [view, setView] = useState<"seller" | "owner">("seller");
+  const [view, setView] = useState<"seller" | "admin">("seller");
 
   useEffect(() => {
-    if (profile?.role === "owner") {
-      setView("owner");
+    if (profile?.role === "admin") {
+      setView("admin");
     } else {
       setView("seller");
     }
@@ -182,7 +182,7 @@ export default function Home() {
 
             <div className="bg-muted/50 p-4 rounded-xl border border-border">
               <p className="text-center text-[8px] text-muted-foreground leading-relaxed uppercase font-black tracking-widest">
-                No user self-registration. Credentials must be pre-authorized in core systems.
+                Access is restricted to pre-authorized accounts managed in the Firebase console.
               </p>
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-4">
-          {profile?.role === "owner" && (
+          {profile?.role === "admin" && (
             <div className="flex gap-1 p-1 bg-muted rounded-2xl border border-border shadow-inner">
               <Button
                 variant={view === "seller" ? "default" : "ghost"}
@@ -218,11 +218,11 @@ export default function Home() {
                 POS
               </Button>
               <Button
-                variant={view === "owner" ? "default" : "ghost"}
+                variant={view === "admin" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => setView("owner")}
+                onClick={() => setView("admin")}
                 className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
-                  view === "owner" ? "bg-secondary text-secondary-foreground shadow-md" : "text-muted-foreground"
+                  view === "admin" ? "bg-secondary text-secondary-foreground shadow-md" : "text-muted-foreground"
                 }`}
               >
                 <LayoutDashboard className="mr-2" size={14} />
@@ -235,8 +235,8 @@ export default function Home() {
             <div className="hidden md:flex flex-col items-end">
               <span className="text-xs font-black leading-none uppercase tracking-tighter">{profile?.displayName || user.displayName || user.email?.split('@')[0]}</span>
               <span className="text-[9px] text-primary uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
-                <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'owner' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
-                {profile?.role === 'owner' ? 'SUPER ADMIN' : 'SELLER'}
+                <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
+                {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
               </span>
             </div>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive hover:bg-destructive/10 h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">

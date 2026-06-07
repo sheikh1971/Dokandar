@@ -10,16 +10,16 @@ import {
   Activity, 
   AlertTriangle, 
   BrainCircuit, 
-  Calendar,
   Filter,
   BarChart3,
   PieChart as PieChartIcon,
   ShieldCheck,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Users,
+  Briefcase
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { 
   Select, 
   SelectContent, 
@@ -34,16 +34,12 @@ import { startOfWeek, startOfMonth, startOfYear, isAfter, format } from "date-fn
 import { 
   Bar, 
   BarChart, 
-  ResponsiveContainer, 
   XAxis, 
   YAxis, 
   Tooltip, 
-  Cell,
-  Line,
-  LineChart,
   CartesianGrid
 } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 
 type AnalysisPeriod = "weekly" | "monthly" | "yearly" | "all";
 
@@ -91,6 +87,16 @@ export function OwnerDashboard() {
     const totalExpenses = filteredExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
     const netProfit = totalRevenue - totalExpenses;
 
+    // Team Breakdown (Sales per seller)
+    const teamMap: Record<string, { name: string; total: number; count: number }> = {};
+    filteredSales.forEach(s => {
+      const id = s.sellerId || "unknown";
+      if (!teamMap[id]) teamMap[id] = { name: s.sellerName || "Anonymous Seller", total: 0, count: 0 };
+      teamMap[id].total += s.total || 0;
+      teamMap[id].count += 1;
+    });
+    const teamStats = Object.values(teamMap).sort((a, b) => b.total - a.total);
+
     // Chart Data Preparation (Group by Date)
     const chartDataMap: Record<string, { name: string; sales: number; expenses: number }> = {};
     
@@ -118,7 +124,8 @@ export function OwnerDashboard() {
       expensesCount: filteredExpenses.length,
       sales: filteredSales,
       expenses: filteredExpenses,
-      chartData
+      chartData,
+      teamStats
     };
   }, [rawSales, rawExpenses, period]);
 
@@ -142,7 +149,7 @@ export function OwnerDashboard() {
             <ShieldCheck className="text-secondary" size={20} />
             <h2 className="text-2xl font-black font-headline tracking-tighter uppercase">SUPER ADMIN <span className="text-primary">PORTAL</span></h2>
           </div>
-          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Master Control & Financial Intelligence Hub</p>
+          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Global Command & Financial Forensics Hub</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
@@ -153,10 +160,10 @@ export function OwnerDashboard() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="weekly">This Week</SelectItem>
-                <SelectItem value="monthly">This Month</SelectItem>
-                <SelectItem value="yearly">This Year</SelectItem>
-                <SelectItem value="all">Lifetime</SelectItem>
+                <SelectItem value="weekly">Weekly Range</SelectItem>
+                <SelectItem value="monthly">Monthly Cycle</SelectItem>
+                <SelectItem value="yearly">Annual Period</SelectItem>
+                <SelectItem value="all">Full History</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -167,24 +174,24 @@ export function OwnerDashboard() {
             disabled={isAiLoading}
            >
               <BrainCircuit className="mr-2" size={16} /> 
-              {isAiLoading ? "Processing Intelligence..." : "Run AI Forensics"}
+              {isAiLoading ? "AI Processing..." : "Generate Insights"}
            </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
-          title="Gross Sales" 
+          title="Revenue Generated" 
           value={`৳${stats.totalRevenue.toLocaleString()}`} 
-          subtitle={`${stats.salesCount} Verified Transactions`}
+          subtitle={`${stats.salesCount} Verified Sales`}
           trend="up" 
           icon={<DollarSign size={20} />} 
           color="primary"
         />
         <StatCard 
-          title="Total Outflow" 
+          title="Total Expenditure" 
           value={`৳${stats.totalExpenses.toLocaleString()}`} 
-          subtitle={`${stats.expensesCount} Expense Entries`}
+          subtitle={`${stats.expensesCount} Cost Records`}
           trend="down" 
           icon={<TrendingDown size={20} />} 
           color="destructive"
@@ -192,15 +199,15 @@ export function OwnerDashboard() {
         <StatCard 
           title="Net Liquidity" 
           value={`৳${stats.netProfit.toLocaleString()}`} 
-          subtitle="Calculated Profit Yield"
+          subtitle="Real-time Profit Yield"
           trend={stats.netProfit >= 0 ? "up" : "down"} 
           icon={<TrendingUp size={20} />} 
           color="secondary"
         />
         <StatCard 
-          title="System Status" 
-          value="ENCRYPTED" 
-          subtitle="All Records Synchronized"
+          title="System Operations" 
+          value="SECURE" 
+          subtitle="Active Database Link"
           trend="none" 
           icon={<Activity size={20} />} 
           color="muted"
@@ -211,15 +218,15 @@ export function OwnerDashboard() {
         <Card className="lg:col-span-2 glass-morphism border-t-4 border-primary shadow-xl overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 pb-6">
             <div>
-              <CardTitle className="text-sm font-black tracking-[0.2em] text-primary uppercase">Financial Velocity Chart</CardTitle>
-              <CardDescription className="text-[10px] font-bold uppercase mt-1">Comparison of Sales vs Expenses for {period}</CardDescription>
+              <CardTitle className="text-sm font-black tracking-[0.2em] text-primary uppercase">Market Velocity Analysis</CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase mt-1">Comparing Inflow vs Outflow over {period} scope</CardDescription>
             </div>
             <BarChart3 className="text-muted-foreground/30" size={24} />
           </CardHeader>
           <CardContent className="pt-6 h-[350px]">
             <ChartContainer config={{ 
-              sales: { label: "Sales", color: "hsl(var(--primary))" },
-              expenses: { label: "Expenses", color: "hsl(var(--destructive))" }
+              sales: { label: "Sales In", color: "hsl(var(--primary))" },
+              expenses: { label: "Expenses Out", color: "hsl(var(--destructive))" }
             }}>
               <BarChart data={stats.chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
@@ -236,9 +243,9 @@ export function OwnerDashboard() {
         <Card className="glass-morphism border-t-4 border-secondary shadow-xl flex flex-col">
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-black flex items-center gap-2 text-secondary uppercase tracking-[0.2em]">
-              <BrainCircuit size={18} /> AI ANALYSIS
+              <BrainCircuit size={18} /> AI FORENSICS
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase">Dynamic Pattern Recognition</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase">Automated Financial Summarization</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto px-6">
             {aiSummary ? (
@@ -249,13 +256,13 @@ export function OwnerDashboard() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
-                <div className="w-20 h-20 rounded-3xl bg-secondary/5 flex items-center justify-center border border-secondary/10 animate-pulse">
+                <div className="w-20 h-20 rounded-3xl bg-secondary/5 flex items-center justify-center border border-secondary/10">
                   <BrainCircuit className="text-secondary/20 w-10 h-10" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Neural Engine Idle</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Neural Engine Standby</p>
                   <p className="text-[9px] text-muted-foreground/60 max-w-[200px] font-bold leading-normal uppercase">
-                    Run AI Forensics to extract leakage patterns from {period} records.
+                    Run forensics to analyze {period} performance patterns.
                   </p>
                 </div>
               </div>
@@ -264,49 +271,63 @@ export function OwnerDashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="glass-morphism shadow-lg overflow-hidden border-t-4 border-destructive">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="glass-morphism shadow-lg border-t-4 border-destructive">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-destructive/5 py-4">
             <CardTitle className="text-xs font-black text-destructive uppercase tracking-[0.2em] flex items-center gap-2">
-              <AlertTriangle size={18} /> Cash Outflow Tracker
+              <AlertTriangle size={18} /> Outflow Logs
             </CardTitle>
             <PieChartIcon size={18} className="text-destructive/30" />
           </CardHeader>
           <CardContent className="p-0">
-            <div className="max-h-[350px] overflow-y-auto">
+            <div className="max-h-[300px] overflow-y-auto">
               {stats.expenses.map((exp, i) => (
-                <div key={i} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-destructive/5 transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center text-destructive group-hover:scale-110 transition-transform">
-                      <TrendingDown size={16} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-foreground uppercase tracking-tight">{exp.description || exp.category}</p>
-                      <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-[0.1em]">
-                        {exp.category} • {exp.timestamp?.toDate()?.toLocaleDateString()}
-                      </p>
-                    </div>
+                <div key={i} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-destructive/5 transition-colors">
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-foreground">{exp.description || exp.category}</p>
+                    <p className="text-[8px] text-muted-foreground font-bold uppercase">{exp.timestamp?.toDate()?.toLocaleDateString()}</p>
                   </div>
-                  <span className="text-sm font-black text-destructive">-৳{exp.amount?.toLocaleString()}</span>
+                  <span className="text-xs font-black text-destructive">-৳{exp.amount?.toLocaleString()}</span>
                 </div>
               ))}
-              {!stats.expenses.length && (
-                <p className="text-center text-muted-foreground text-[10px] font-black uppercase tracking-widest py-20">No expense logs detected.</p>
-              )}
+              {!stats.expenses.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No records</p>}
             </div>
           </CardContent>
         </Card>
 
         <Card className="glass-morphism shadow-lg border-t-4 border-primary">
-          <CardHeader className="py-4 border-b border-border/50 bg-primary/5">
-            <CardTitle className="text-xs font-black text-primary flex items-center gap-2 uppercase tracking-[0.2em]">
-              <Activity size={18} /> Operational KPIs
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-primary/5 py-4">
+            <CardTitle className="text-xs font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+              <Users size={18} /> Team Performance
+            </CardTitle>
+            <Briefcase size={18} className="text-primary/30" />
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-[300px] overflow-y-auto">
+              {stats.teamStats.map((tm, i) => (
+                <div key={i} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-primary/5 transition-colors">
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-foreground">{tm.name}</p>
+                    <p className="text-[8px] text-muted-foreground font-bold uppercase">{tm.count} Orders Processed</p>
+                  </div>
+                  <span className="text-xs font-black text-primary">৳{tm.total.toLocaleString()}</span>
+                </div>
+              ))}
+              {!stats.teamStats.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No activity</p>}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-morphism shadow-lg border-t-4 border-secondary">
+          <CardHeader className="py-4 border-b border-border/50 bg-secondary/5">
+            <CardTitle className="text-xs font-black text-secondary flex items-center gap-2 uppercase tracking-[0.2em]">
+              <Activity size={18} /> Health Metrics
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-8 pt-8 px-6">
-             <VelocityItem label="Inventory Health" value={72} subtext="Optimal turnover across core units" />
-             <VelocityItem label="Profit Target Velocity" value={Math.min(100, Math.floor((stats.netProfit / 100000) * 100))} subtext="Towards 100k Periodic Milestone" />
-             <VelocityItem label="Efficiency Ratio" value={stats.totalRevenue > 0 ? 100 - Math.floor((stats.totalExpenses / stats.totalRevenue) * 100) : 0} subtext="Revenue retention efficiency" />
+          <CardContent className="space-y-6 pt-6 px-6">
+             <VelocityItem label="Margin Efficiency" value={stats.totalRevenue > 0 ? 100 - Math.floor((stats.totalExpenses / stats.totalRevenue) * 100) : 0} />
+             <VelocityItem label="Inventory Health" value={84} />
+             <VelocityItem label="Retention Rate" value={72} />
           </CardContent>
         </Card>
       </div>
@@ -329,40 +350,39 @@ function StatCard({ title, value, subtitle, trend, icon, color }: any) {
   };
 
   return (
-    <Card className="glass-morphism p-6 transition-all hover:translate-y-[-6px] hover:shadow-2xl relative overflow-hidden group border-none">
-      <div className={`absolute top-0 right-0 w-32 h-32 bg-${color}/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-150 duration-700`} />
+    <Card className="glass-morphism p-6 transition-all hover:translate-y-[-4px] relative overflow-hidden group border-none">
+      <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150 duration-500`} />
       <div className="flex justify-between items-start relative z-10">
-        <div className={`bg-muted p-3 rounded-2xl ${colors[color]} shadow-inner border group-hover:bg-white transition-colors`}>{icon}</div>
-        <div className={`text-[8px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest flex items-center gap-1 ${
+        <div className={`bg-muted p-2.5 rounded-xl ${colors[color]} shadow-inner border`}>{icon}</div>
+        <div className={`text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 ${
           trend === 'up' ? 'bg-primary/10 text-primary' : trend === 'down' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
         }`}>
           {trend !== 'none' && getTrendIcon()}
-          {trend === 'up' ? 'Gaining' : trend === 'down' ? 'Outflow' : 'Static'}
+          {trend === 'up' ? 'Gain' : trend === 'down' ? 'Loss' : 'Flat'}
         </div>
       </div>
-      <div className="mt-8 relative z-10">
-        <p className="text-[9px] font-black text-muted-foreground tracking-[0.2em] uppercase mb-1">{title}</p>
-        <h3 className="text-3xl font-black text-foreground tracking-tighter">{value}</h3>
-        <p className="text-[9px] font-bold text-muted-foreground/50 uppercase mt-2">{subtitle}</p>
+      <div className="mt-6 relative z-10">
+        <p className="text-[8px] font-black text-muted-foreground tracking-[0.2em] uppercase mb-1">{title}</p>
+        <h3 className="text-2xl font-black text-foreground tracking-tighter">{value}</h3>
+        <p className="text-[8px] font-bold text-muted-foreground/50 uppercase mt-1">{subtitle}</p>
       </div>
     </Card>
   );
 }
 
-function VelocityItem({ label, value, subtext }: any) {
+function VelocityItem({ label, value }: any) {
   return (
-    <div className="space-y-3">
-      <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.1em]">
+    <div className="space-y-2">
+      <div className="flex justify-between text-[9px] font-black uppercase tracking-[0.1em]">
         <span className="text-foreground/70">{label}</span>
-        <span className="text-primary">{value}%</span>
+        <span className="text-secondary">{value}%</span>
       </div>
-      <div className="relative h-2.5 w-full bg-muted rounded-full overflow-hidden shadow-inner">
+      <div className="relative h-1.5 w-full bg-muted rounded-full overflow-hidden">
         <div 
-          className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--primary),0.3)]" 
+          className="h-full bg-secondary transition-all duration-1000 ease-out" 
           style={{ width: `${value}%` }}
         />
       </div>
-      <p className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tight">{subtext}</p>
     </div>
   );
 }
