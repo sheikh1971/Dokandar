@@ -17,7 +17,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Users,
-  Briefcase
+  Briefcase,
+  Lock,
+  ShieldAlert
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -28,8 +30,8 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
-import { useFirestore, useCollection } from "@/firebase";
-import { collection, query, orderBy, Timestamp } from "firebase/firestore";
+import { useFirestore, useCollection, useUser, useDoc } from "@/firebase";
+import { collection, query, orderBy, Timestamp, doc } from "firebase/firestore";
 import { startOfWeek, startOfMonth, startOfYear, isAfter, format } from "date-fns";
 import { 
   Bar, 
@@ -47,17 +49,29 @@ export function AdminDashboard() {
   const [period, setPeriod] = useState<AnalysisPeriod>("monthly");
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  
   const { firestore } = useFirestore();
+  const { user } = useUser();
 
+  // Check for admin role before fetching protected data
+  const userProfileQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
+  const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
+  const isAdmin = profile?.role === 'admin';
+
+  // Gates queries to only run for authorized admins to prevent permission errors
   const salesQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || !isAdmin) return null;
     return query(collection(firestore, "sales"), orderBy("timestamp", "desc"));
-  }, [firestore]);
+  }, [firestore, isAdmin]);
 
   const expensesQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || !isAdmin) return null;
     return query(collection(firestore, "expenses"), orderBy("timestamp", "desc"));
-  }, [firestore]);
+  }, [firestore, isAdmin]);
 
   const { data: rawSales } = useCollection(salesQuery);
   const { data: rawExpenses } = useCollection(expensesQuery);
@@ -139,8 +153,34 @@ export function AdminDashboard() {
     }
   };
 
+  if (!isAdmin && !profileLoading) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
+        <div className="w-24 h-24 rounded-[2rem] bg-secondary/10 flex items-center justify-center border border-secondary/20 shadow-2xl relative">
+          <Lock className="text-secondary w-10 h-10" />
+          <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-destructive flex items-center justify-center animate-pulse border-4 border-background">
+            <ShieldAlert size={14} className="text-white" />
+          </div>
+        </div>
+        <div className="text-center space-y-4 max-w-md">
+          <h2 className="font-headline text-3xl font-black uppercase tracking-tighter">RESTRICTED <span className="text-secondary">ACCESS</span></h2>
+          <p className="text-muted-foreground text-sm font-bold leading-relaxed uppercase tracking-wide">
+            The Super Admin Command Center requires verified biometric/cryptographic credentials. Please log in with a Super Admin account to access real-time financial intelligence.
+          </p>
+          <div className="pt-6">
+            <p className="text-[10px] font-black uppercase text-muted-foreground/60 mb-2 tracking-[0.3em]">Current Clearance Level</p>
+            <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-muted border border-border">
+              <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">UNAUTHORIZED GUEST</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
