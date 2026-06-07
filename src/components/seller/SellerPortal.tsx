@@ -21,21 +21,20 @@ import {
   Plus, 
   Search, 
   Trash2, 
-  ShoppingBag, 
   Loader2,
-  TrendingUp,
-  History,
-  ShieldCheck,
   Zap,
-  ArrowRight,
-  Edit3
+  Edit3,
+  History,
+  Calendar,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection } from "@/firebase";
-import { collection, addDoc, serverTimestamp, query, orderBy, deleteDoc, doc, where, Timestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, orderBy, deleteDoc, doc, where, Timestamp, updateDoc } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
-import { startOfDay, isAfter } from "date-fns";
+import { startOfDay, isAfter, subDays, format } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 export function SellerPortal() {
   const { toast } = useToast();
@@ -58,6 +57,10 @@ export function SellerPortal() {
   const [expenseAmount, setExpenseAmount] = useState("");
   const [expenseCat, setExpenseCat] = useState("Operations");
 
+  // Edit record state
+  const [editingRecord, setEditingRecord] = useState<any>(null);
+  const [editValue, setEditValue] = useState("");
+
   // Fetch Live Inventory
   const productsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -66,7 +69,7 @@ export function SellerPortal() {
 
   const { data: products, loading: productsLoading } = useCollection(productsQuery);
 
-  // Fetch Seller's Sales for today's calculation
+  // Fetch Seller's Sales for ledger (last 7 days)
   const salesQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(
@@ -78,24 +81,51 @@ export function SellerPortal() {
 
   const { data: sellerSales } = useCollection(salesQuery);
 
-  const todayStats = useMemo(() => {
-    if (!sellerSales) return { total: 0, count: 0 };
+  // Fetch Seller's Expenses for ledger (last 7 days)
+  const expensesQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, "expenses"),
+      where("sellerId", "==", user.uid),
+      orderBy("timestamp", "desc")
+    );
+  }, [firestore, user]);
+
+  const { data: sellerExpenses } = useCollection(expensesQuery);
+
+  const stats = useMemo(() => {
     const today = startOfDay(new Date());
-    const filtered = sellerSales.filter(s => {
+    const sevenDaysAgo = subDays(today, 7);
+
+    const filteredSales = sellerSales?.filter(s => {
+      const ts = s.timestamp as Timestamp;
+      return ts && isAfter(ts.toDate(), sevenDaysAgo);
+    }) || [];
+
+    const filteredExpenses = sellerExpenses?.filter(e => {
+      const ts = e.timestamp as Timestamp;
+      return ts && isAfter(ts.toDate(), sevenDaysAgo);
+    }) || [];
+
+    const todayTotal = filteredSales.filter(s => {
       const ts = s.timestamp as Timestamp;
       return ts && isAfter(ts.toDate(), today);
-    });
+    }).reduce((acc, s) => acc + (s.total || 0), 0);
+
     return {
-      total: filtered.reduce((acc, s) => acc + (s.total || 0), 0),
-      count: filtered.length
+      todayTotal,
+      todayCount: filteredSales.filter(s => isAfter((s.timestamp as Timestamp).toDate(), today)).length,
+      recentSales: filteredSales,
+      recentExpenses: filteredExpenses
     };
-  }, [sellerSales]);
+  }, [sellerSales, sellerExpenses]);
 
   const t = {
     bn: {
       sales: "দৈনিক বিক্রি",
       expenses: "খরচ হিসাব",
       inventory: "স্টক ও পণ্য",
+      ledger: "৭ দিনের হিসাব",
       addSale: "বিক্রি যুক্ত করুন",
       addExpense: "খরচ যুক্ত করুন",
       productName: "পণ্যের নাম",
@@ -110,12 +140,16 @@ export function SellerPortal() {
       quickAdd: "দ্রুত পণ্য যোগ / মূল্য পরিবর্তন",
       manageProducts: "পণ্য পরিচালনা",
       performance: "আজকের পারফরম্যান্স",
-      adjustHint: "পণ্যে ক্লিক করে দাম পরিবর্তন করুন"
+      adjustHint: "পণ্যে ক্লিক করে দাম পরিবর্তন করুন",
+      history: "লেনদেনের তালিকা",
+      edit: "সম্পাদনা",
+      delete: "মুছে ফেলুন"
     },
     en: {
       sales: "Daily Sales",
       expenses: "Daily Expenses",
       inventory: "Stock & Products",
+      ledger: "7-Day Ledger",
       addSale: "Add Sale",
       addExpense: "Add Expense",
       productName: "Product Name",
@@ -130,7 +164,10 @@ export function SellerPortal() {
       quickAdd: "Quick Entry / Manual Price",
       manageProducts: "Manage Products",
       performance: "Today's Performance",
-      adjustHint: "Click product to adjust price manually"
+      adjustHint: "Click product to adjust price manually",
+      history: "Transaction History",
+      edit: "Edit Record",
+      delete: "Delete"
     }
   }[lang];
 
@@ -255,6 +292,32 @@ export function SellerPortal() {
       });
   };
 
+  const handleDeleteRecord = async (type: "sales" | "expenses", id: string) => {
+    if (!firestore) return;
+    deleteDoc(doc(firestore, type, id))
+      .then(() => {
+        toast({ title: "Record Deleted", description: "The entry has been removed from your ledger." });
+      });
+  };
+
+  const handleUpdateRecord = async () => {
+    if (!firestore || !editingRecord || !editValue || !user) return;
+    
+    const type = editingRecord.type === "sale" ? "sales" : "expenses";
+    const ref = doc(firestore, type, editingRecord.id);
+    const val = parseFloat(editValue);
+
+    const updates = type === "sales" 
+      ? { total: val, updatedAt: serverTimestamp(), updatedBy: user.displayName || user.email }
+      : { amount: val, updatedAt: serverTimestamp(), updatedBy: user.displayName || user.email };
+
+    updateDoc(ref, updates).then(() => {
+      toast({ title: "Record Updated", description: "Audit trail has been updated for admin review." });
+      setEditingRecord(null);
+      setEditValue("");
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header & Performance Metrics */}
@@ -271,12 +334,12 @@ export function SellerPortal() {
           <Card className="glass-morphism px-6 py-3 flex items-center gap-4 rounded-2xl border-none shadow-lg">
             <div className="text-right">
               <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{t.performance}</p>
-              <p className="text-xl font-black text-primary tracking-tighter">৳{todayStats.total.toLocaleString()}</p>
+              <p className="text-xl font-black text-primary tracking-tighter">৳{stats.todayTotal.toLocaleString()}</p>
             </div>
             <div className="w-px h-8 bg-border" />
             <div className="text-right">
               <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{lang === 'bn' ? 'বিক্রি' : 'TXNS'}</p>
-              <p className="text-xl font-black text-foreground tracking-tighter">{todayStats.count}</p>
+              <p className="text-xl font-black text-foreground tracking-tighter">{stats.todayCount}</p>
             </div>
           </Card>
           
@@ -292,7 +355,7 @@ export function SellerPortal() {
       </div>
 
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-muted border border-border p-1 mb-8 h-14 rounded-2xl">
+        <TabsList className="grid w-full grid-cols-4 bg-muted border border-border p-1 mb-8 h-14 rounded-2xl">
           <TabsTrigger value="sales" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
             <ShoppingCart className="mr-2" size={16} /> {t.sales}
           </TabsTrigger>
@@ -302,12 +365,14 @@ export function SellerPortal() {
           <TabsTrigger value="inventory" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
             <Package className="mr-2" size={16} /> {t.inventory}
           </TabsTrigger>
+          <TabsTrigger value="ledger" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+            <History className="mr-2" size={16} /> {t.ledger}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              {/* Quick Entry / Manual Price Adjuster */}
               <Card className="glass-morphism border-t-4 border-primary shadow-xl">
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-center">
@@ -327,7 +392,7 @@ export function SellerPortal() {
                         placeholder={t.productName} 
                         value={quickItemName} 
                         onChange={(e) => setQuickItemName(e.target.value)}
-                        className="bg-muted border-border font-black h-12 rounded-xl focus:ring-primary"
+                        className="bg-muted border-border font-black h-12 rounded-xl"
                       />
                     </div>
                     <div className="flex-1">
@@ -337,11 +402,11 @@ export function SellerPortal() {
                         placeholder={t.price} 
                         value={quickItemPrice} 
                         onChange={(e) => setQuickItemPrice(e.target.value)}
-                        className="bg-muted border-border font-black h-12 rounded-xl focus:ring-primary text-primary"
+                        className="bg-muted border-border font-black h-12 rounded-xl text-primary"
                       />
                     </div>
                     <div className="flex items-end">
-                      <Button onClick={handleQuickAdd} className="bg-primary hover:bg-primary/90 rounded-xl h-12 px-10 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
+                      <Button onClick={handleQuickAdd} className="bg-primary hover:bg-primary/90 rounded-xl h-12 px-10 shadow-lg">
                         <Plus size={20} className="mr-2" />
                         <span className="font-black uppercase tracking-widest text-[10px]">Add to Cart</span>
                       </Button>
@@ -350,7 +415,6 @@ export function SellerPortal() {
                 </CardContent>
               </Card>
 
-              {/* Product Grid */}
               <Card className="glass-morphism border-t-4 border-muted">
                 <CardHeader>
                   <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
@@ -361,7 +425,6 @@ export function SellerPortal() {
                   {productsLoading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-4">
                       <Loader2 className="animate-spin text-primary" size={32} />
-                      <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Syncing Matrix...</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -372,19 +435,13 @@ export function SellerPortal() {
                           onClick={() => handleProductSelect(prod)}
                           className="h-32 flex flex-col items-center justify-center border border-border hover:border-primary hover:bg-primary/5 transition-all rounded-2xl shadow-sm group"
                         >
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
                             <Package size={20} className="text-primary" />
                           </div>
                           <span className="text-[10px] font-black uppercase text-center leading-tight mb-1">{prod.name}</span>
                           <span className="text-[12px] font-black text-primary">৳{prod.price}</span>
                         </Button>
                       ))}
-                      {!products?.length && (
-                        <div className="col-span-full py-20 text-center opacity-40 border-2 border-dashed border-border rounded-3xl">
-                          <Package className="mx-auto mb-4" size={40} />
-                          <p className="text-[10px] font-black uppercase tracking-widest">Catalog Empty • Use Quick Entry above</p>
-                        </div>
-                      )}
                     </div>
                   )}
                 </CardContent>
@@ -403,11 +460,10 @@ export function SellerPortal() {
               <CardContent className="space-y-4 flex-1">
                 <div className="max-h-[450px] overflow-y-auto space-y-3 pr-2 scrollbar-hide">
                   {cart.map((item, idx) => (
-                    <div key={idx} className="bg-muted/40 p-4 rounded-xl border border-border group animate-in slide-in-from-right-4 duration-300">
+                    <div key={idx} className="bg-muted/40 p-4 rounded-xl border border-border">
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
                           <p className="text-[11px] font-black uppercase leading-none mb-1">{item.name}</p>
-                          <p className="text-[9px] text-muted-foreground font-black uppercase">Line Item #{idx + 1}</p>
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => {
                           const newCart = [...cart];
@@ -439,12 +495,6 @@ export function SellerPortal() {
                       </div>
                     </div>
                   ))}
-                  {cart.length === 0 && (
-                    <div className="text-center py-24 opacity-30">
-                      <ShoppingCart className="mx-auto mb-4" size={32} />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Cart Standby</p>
-                    </div>
-                  )}
                 </div>
                 <div className="border-t border-border pt-6 space-y-4">
                   <div className="flex justify-between text-2xl font-black uppercase tracking-tighter">
@@ -452,11 +502,11 @@ export function SellerPortal() {
                     <span className="text-primary">৳{cart.reduce((acc, curr) => acc + curr.price * curr.qty, 0).toLocaleString()}</span>
                   </div>
                   <Button 
-                    className="w-full bg-primary text-primary-foreground font-black py-8 rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-[0.2em] text-sm" 
+                    className="w-full bg-primary text-primary-foreground font-black py-8 rounded-2xl shadow-xl hover:scale-[1.02] transition-all uppercase tracking-[0.2em] text-sm" 
                     disabled={cart.length === 0}
                     onClick={handleCheckout}
                   >
-                    <ShieldCheck className="mr-2" /> {t.checkout}
+                    {t.checkout}
                   </Button>
                 </div>
               </CardContent>
@@ -503,7 +553,6 @@ export function SellerPortal() {
 
         <TabsContent value="inventory">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Add Product Form */}
             <Card className="glass-morphism border-t-4 border-primary">
               <CardHeader>
                 <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-primary">
@@ -539,55 +588,138 @@ export function SellerPortal() {
               </CardContent>
             </Card>
 
-            {/* Inventory List */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="flex items-center gap-3 p-6 bg-primary/5 border border-primary/20 rounded-3xl text-primary font-black uppercase tracking-widest text-[11px] animate-pulse">
-                <ShieldCheck size={20} />
-                <span>Neural Stock Matrix: Syncing Global Assets</span>
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {products?.map((p: any) => (
                   <Card key={p.id} className="glass-morphism border-border hover:border-primary transition-all group overflow-hidden relative">
                     <CardContent className="p-8 flex justify-between items-center relative z-10">
-                      <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Package size={80} />
-                      </div>
                       <div>
-                        <h4 className="font-black text-[14px] uppercase tracking-tighter group-hover:text-primary transition-colors">{p.name}</h4>
+                        <h4 className="font-black text-[14px] uppercase tracking-tighter">{p.name}</h4>
                         <p className="text-[9px] text-muted-foreground font-black uppercase mt-1 tracking-widest">{p.category}</p>
                         <div className="mt-4 flex items-center gap-4">
                            <p className="text-lg font-black text-primary tracking-tighter">৳{p.price}</p>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-3">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => handleDeleteProduct(p.id)}
-                          className="text-destructive h-10 w-10 border border-transparent hover:border-destructive/20 rounded-xl"
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                        <div className="text-right">
-                          <p className="text-2xl font-black text-foreground tracking-tighter">LOCKED</p>
-                          <p className="text-[8px] text-muted-foreground/60 font-black uppercase tracking-widest">Stock Sync</p>
-                        </div>
-                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => handleDeleteProduct(p.id)}
+                        className="text-destructive h-10 w-10 border border-transparent hover:border-destructive/20 rounded-xl"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
-                {!products?.length && (
-                  <div className="col-span-full py-40 text-center opacity-20 border-2 border-dashed border-border rounded-[2.5rem]">
-                    <History size={60} className="mx-auto mb-6" />
-                    <p className="text-xs font-black uppercase tracking-[0.3em]">No Assets Detected in Catalog</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="ledger">
+          <Card className="glass-morphism border-t-4 border-secondary shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                <History size={16} className="text-secondary" /> {t.history}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-[600px] overflow-y-auto">
+                <div className="p-4 bg-muted/30 border-b border-border text-[9px] font-black text-muted-foreground uppercase flex items-center gap-2">
+                  <Calendar size={12} /> Last 7 Days Ledger
+                </div>
+                {/* Unified List of Sales and Expenses */}
+                {[...(stats.recentSales || []).map(s => ({...s, type: 'sale'})), ...(stats.recentExpenses || []).map(e => ({...e, type: 'expense'}))]
+                  .sort((a, b) => (b.timestamp as any)?.toDate() - (a.timestamp as any)?.toDate())
+                  .map((record: any) => (
+                    <div key={record.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 border-b border-border/30 hover:bg-muted/30 transition-all gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${record.type === 'sale' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+                          {record.type === 'sale' ? <ShoppingCart size={20} /> : <Banknote size={20} />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-black uppercase tracking-tighter">
+                              {record.type === 'sale' ? 'Sale Record' : (record.description || record.category)}
+                            </p>
+                            {record.updatedAt && (
+                              <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black flex items-center gap-1">
+                                <AlertCircle size={8} /> MODIFIED
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
+                            {record.timestamp?.toDate()?.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <p className={`text-lg font-black ${record.type === 'sale' ? 'text-primary' : 'text-destructive'}`}>
+                            {record.type === 'sale' ? `+৳${record.total}` : `-৳${record.amount}`}
+                          </p>
+                          <div className="flex gap-2 mt-1">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-7 text-[9px] font-black uppercase tracking-widest text-secondary hover:bg-secondary/10"
+                                  onClick={() => {
+                                    setEditingRecord(record);
+                                    setEditValue((record.type === 'sale' ? record.total : record.amount).toString());
+                                  }}
+                                >
+                                  {t.edit}
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="glass-morphism border-t-4 border-secondary">
+                                <DialogHeader>
+                                  <DialogTitle className="text-sm font-black uppercase tracking-widest">Adjust Ledger Entry</DialogTitle>
+                                </DialogHeader>
+                                <div className="py-4 space-y-4">
+                                  <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase">{record.type === 'sale' ? 'Sale Total' : 'Expense Amount'}</Label>
+                                    <Input 
+                                      type="number" 
+                                      value={editValue} 
+                                      onChange={(e) => setEditValue(e.target.value)} 
+                                      className="bg-muted font-black"
+                                    />
+                                  </div>
+                                  <p className="text-[9px] text-muted-foreground font-bold uppercase border-l-2 border-primary/20 pl-3">
+                                    Note: Changes will be logged with your identity for administrative auditing.
+                                  </p>
+                                </div>
+                                <DialogFooter>
+                                  <Button onClick={handleUpdateRecord} className="w-full bg-secondary font-black uppercase">Finalize Adjustment</Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-[9px] font-black uppercase tracking-widest text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteRecord(record.type === 'sale' ? 'sales' : 'expenses', record.id)}
+                            >
+                              {t.delete}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {(!stats.recentSales.length && !stats.recentExpenses.length) && (
+                    <div className="flex flex-col items-center justify-center py-40 opacity-20">
+                      <History size={60} className="mb-6" />
+                      <p className="text-xs font-black uppercase tracking-[0.3em]">No Recent Activity</p>
+                    </div>
+                  )}
+                </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-

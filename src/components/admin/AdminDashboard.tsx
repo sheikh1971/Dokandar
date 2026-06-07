@@ -7,24 +7,18 @@ import {
   TrendingUp, 
   TrendingDown, 
   DollarSign, 
-  Activity, 
-  AlertTriangle, 
   BrainCircuit, 
   Filter,
   BarChart3,
-  PieChart as PieChartIcon,
   ShieldCheck,
-  ArrowUpRight,
-  ArrowDownRight,
-  Users,
-  Briefcase,
-  History,
   Package,
   Plus,
   Trash2,
   Table as TableIcon,
-  Zap,
-  Lock
+  History,
+  AlertTriangle,
+  Clock,
+  User as UserIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +34,7 @@ import {
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
 import { useFirestore, useCollection, useUser } from "@/firebase";
 import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
-import { startOfWeek, startOfMonth, startOfYear, isAfter, format, subDays } from "date-fns";
+import { startOfWeek, startOfMonth, startOfYear, isAfter, format } from "date-fns";
 import { 
   Bar, 
   BarChart, 
@@ -58,7 +52,6 @@ export function AdminDashboard() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   
-  // Product Management State
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
   const [newProductCategory, setNewProductCategory] = useState("Essentials");
@@ -66,7 +59,6 @@ export function AdminDashboard() {
   const { firestore } = useFirestore();
   const { user } = useUser();
 
-  // ONLY query if user is logged in to avoid Permission Denied during "Building Phase"
   const salesQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, "sales"), orderBy("timestamp", "desc"));
@@ -111,15 +103,6 @@ export function AdminDashboard() {
     const totalExpenses = filteredExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
     const netProfit = totalRevenue - totalExpenses;
 
-    const teamMap: Record<string, { name: string; total: number; count: number }> = {};
-    filteredSales.forEach(s => {
-      const id = s.sellerId || "unknown";
-      if (!teamMap[id]) teamMap[id] = { name: s.sellerName || "Anonymous Seller", total: 0, count: 0 };
-      teamMap[id].total += s.total || 0;
-      teamMap[id].count += 1;
-    });
-    const teamStats = Object.values(teamMap).sort((a, b) => b.total - a.total);
-
     const chartDataMap: Record<string, { name: string; sales: number; expenses: number }> = {};
     filteredSales.forEach(s => {
       const d = (s.timestamp as Timestamp)?.toDate();
@@ -132,11 +115,9 @@ export function AdminDashboard() {
 
     return { 
       totalRevenue, totalExpenses, netProfit, 
-      salesCount: filteredSales.length,
-      expensesCount: filteredExpenses.length,
       sales: filteredSales,
       expenses: filteredExpenses,
-      chartData, teamStats
+      chartData
     };
   }, [rawSales, rawExpenses, period]);
 
@@ -146,7 +127,7 @@ export function AdminDashboard() {
       name: newProductName,
       price: parseFloat(newProductPrice),
       category: newProductCategory,
-      stock: 100,
+      stock: 0,
       timestamp: serverTimestamp()
     });
     setNewProductName("");
@@ -319,7 +300,6 @@ export function AdminDashboard() {
                       <div className="flex items-center gap-6">
                         <div className="text-right">
                           <p className="text-sm font-black text-primary">৳{p.price}</p>
-                          <p className="text-[9px] font-black text-muted-foreground uppercase">{p.stock} In Stock</p>
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive hover:bg-destructive/10">
                           <Trash2 size={16} />
@@ -327,12 +307,6 @@ export function AdminDashboard() {
                       </div>
                     </div>
                   ))}
-                  {!products?.length && (
-                    <div className="flex flex-col items-center justify-center py-20 opacity-30">
-                      <Package size={40} className="mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">No Products Detected</p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -344,7 +318,7 @@ export function AdminDashboard() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-black uppercase tracking-widest">Global Transaction Forensic Log</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase">Audit trail of all shop activity</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase">Audit trail of all shop activity including modifications</CardDescription>
               </div>
               <TableIcon className="text-muted-foreground/30" size={24} />
             </CardHeader>
@@ -353,17 +327,38 @@ export function AdminDashboard() {
                 {stats.sales.map((sale: any) => (
                   <div key={sale.id} className="p-6 border-b border-border/30 hover:bg-muted/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center relative">
                         <History className="text-secondary" size={20} />
+                        {sale.updatedAt && (
+                          <div className="absolute -top-1 -right-1">
+                            <AlertTriangle className="text-secondary animate-pulse" size={12} />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-black uppercase">TXN#{sale.id.slice(-6).toUpperCase()}</p>
-                          <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase">VERIFIED</span>
+                          {sale.updatedAt ? (
+                            <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black uppercase flex items-center gap-1">
+                              MODIFIED BY {sale.updatedBy?.toUpperCase()}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase">VERIFIED</span>
+                          )}
                         </div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                          Processed by {sale.sellerName} • {sale.timestamp?.toDate()?.toLocaleString()}
-                        </p>
+                        <div className="flex flex-col gap-0.5 mt-1">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                            <UserIcon size={10} /> {sale.sellerName}
+                          </p>
+                          <p className="text-[9px] text-muted-foreground/60 font-bold uppercase flex items-center gap-1">
+                            <Clock size={10} /> {sale.timestamp?.toDate()?.toLocaleString()}
+                          </p>
+                          {sale.updatedAt && (
+                            <p className="text-[8px] text-secondary font-black uppercase mt-1">
+                              Last Adjustment: {sale.updatedAt?.toDate()?.toLocaleString()}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -378,12 +373,6 @@ export function AdminDashboard() {
                     </div>
                   </div>
                 ))}
-                {!stats.sales.length && (
-                  <div className="flex flex-col items-center justify-center py-40 opacity-20">
-                    <History size={60} className="mb-6" />
-                    <p className="text-xs font-black uppercase tracking-[0.3em]">No Transactions Logged</p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

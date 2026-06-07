@@ -28,7 +28,7 @@
     },
     "Sale": {
       "title": "Sale Record",
-      "description": "Transaction details.",
+      "description": "Transaction details with audit fields.",
       "type": "object",
       "properties": {
         "timestamp": { "type": "string", "format": "date-time" },
@@ -45,19 +45,23 @@
           }
         },
         "sellerId": { "type": "string" },
-        "sellerName": { "type": "string" }
+        "sellerName": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
       }
     },
     "Expense": {
       "title": "Expense Record",
-      "description": "Business costs.",
+      "description": "Business costs with audit fields.",
       "type": "object",
       "properties": {
         "timestamp": { "type": "string", "format": "date-time" },
         "amount": { "type": "number" },
         "category": { "type": "string" },
         "description": { "type": "string" },
-        "sellerId": { "type": "string" }
+        "sellerId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
       }
     }
   },
@@ -75,11 +79,11 @@
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Sales records. Sellers can create. Only admins can read all."
+      "description": "Sales records. Sellers can create, edit, and delete their own. Admins can read all."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Expense records. Sellers can create. Only admins can read all."
+      "description": "Expense records. Sellers can create, edit, and delete their own. Admins can read all."
     }
   }
 }
