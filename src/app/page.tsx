@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LayoutDashboard, ShoppingBag, Zap, LogOut, AlertCircle, Copy, Check, Mail, Lock } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
-import { signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { signOut, signInWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -28,7 +28,6 @@ export default function Home() {
   // Email login state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSigningUp, setIsSigningUp] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -69,16 +68,11 @@ export default function Home() {
     setIsCreatingProfile(true);
 
     try {
-      let loggedUser;
-      if (isSigningUp) {
-        const result = await createUserWithEmailAndPassword(auth, email, password);
-        loggedUser = result.user;
-      } else {
-        const result = await signInWithEmailAndPassword(auth, email, password);
-        loggedUser = result.user;
-      }
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      const loggedUser = result.user;
 
       // Owners/Super Admins log in via email/password
+      // We still update/ensure the profile has the owner role if they are logging in here
       const userRef = doc(firestore, "users", loggedUser.uid);
       await setDoc(userRef, {
         uid: loggedUser.uid,
@@ -88,7 +82,7 @@ export default function Home() {
       }, { merge: true });
 
       toast({
-        title: isSigningUp ? "Account Created" : "Welcome Back",
+        title: "Welcome Back",
         description: `Logged in as Super Admin`,
       });
 
@@ -192,15 +186,11 @@ export default function Home() {
                 </div>
               </div>
               <Button type="submit" className="w-full py-6 font-bold rounded-2xl">
-                {isSigningUp ? "Setup Super Admin" : "Login to Portal"}
+                Login to Portal
               </Button>
-              <button 
-                type="button" 
-                onClick={() => setIsSigningUp(!isSigningUp)}
-                className="w-full text-xs text-primary font-semibold hover:underline"
-              >
-                {isSigningUp ? "Already have an account? Login" : "First time? Setup Admin Account"}
-              </button>
+              <p className="text-center text-[10px] text-muted-foreground mt-4 italic">
+                Authorized Access Only. Contact System Admin for credentials.
+              </p>
             </form>
           </div>
         </div>
