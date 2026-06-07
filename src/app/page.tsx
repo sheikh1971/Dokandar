@@ -147,18 +147,20 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Assigned Operational Role</Label>
-              <Select value={authRole} onValueChange={(v: any) => setAuthRole(v)}>
-                <SelectTrigger className="h-14 rounded-2xl bg-muted/30 border-border font-bold focus:ring-primary">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-border">
-                  <SelectItem value="admin" className="font-black text-[10px] uppercase tracking-widest text-primary">Super Admin / Owner</SelectItem>
-                  <SelectItem value="seller" className="font-black text-[10px] uppercase tracking-widest">Seller / Staff Portal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {isSignUp && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Assign Operational Role</Label>
+                <Select value={authRole} onValueChange={(v: any) => setAuthRole(v)}>
+                  <SelectTrigger className="h-14 rounded-2xl bg-muted/30 border-border font-bold focus:ring-primary">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-border">
+                    <SelectItem value="admin" className="font-black text-[10px] uppercase tracking-widest text-primary">Super Admin / Owner</SelectItem>
+                    <SelectItem value="seller" className="font-black text-[10px] uppercase tracking-widest">Seller / Staff Portal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="pt-2">
               <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest" disabled={isAuthenticating}>
