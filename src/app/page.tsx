@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { 
   Zap, 
   LogOut, 
@@ -20,7 +21,8 @@ import {
   ShieldCheck,
   Building2,
   Users,
-  Key
+  Key,
+  Fingerprint
 } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
@@ -100,7 +102,7 @@ export default function Home() {
     }
   };
 
-  // Loading State
+  // 1. LOADING STATE
   if (authLoading || (user && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -112,7 +114,7 @@ export default function Home() {
     );
   }
 
-  // LOGIN / SIGNUP GATE
+  // 2. UNAUTHENTICATED STATE (LOGIN/SIGNUP GATE)
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-6 relative overflow-hidden">
@@ -134,7 +136,7 @@ export default function Home() {
                 DOKAN<span className={isSignUp ? 'text-secondary' : 'text-primary'}>HISHAB</span>
               </h2>
               <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">
-                {isSignUp ? "New Identity Provisioning Terminal" : "Secure Business Intelligence Terminal"}
+                {isSignUp ? "Identity Provisioning Required" : "Authentication Mandatory for Entry"}
               </p>
             </div>
           </div>
@@ -146,7 +148,7 @@ export default function Home() {
                 <Mail className={`absolute left-4 top-4 text-muted-foreground group-focus-within:${isSignUp ? 'text-secondary' : 'text-primary'} transition-colors`} size={18} />
                 <Input 
                   type="email" 
-                  placeholder="admin@gmail.com" 
+                  placeholder="name@business.com" 
                   className="pl-12 h-14 rounded-2xl bg-muted/30 border-border font-bold focus:ring-primary focus:border-primary" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
@@ -169,13 +171,13 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Role Selection (Only during Sign Up) */}
+            {/* Role Selection (Mandatory during Registration) */}
             {isSignUp && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2 bg-muted/20 p-5 rounded-2xl border border-border/50">
                  <div className="flex items-center justify-between mb-2">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      {authRole === 'admin' ? <Building2 size={12} className="text-secondary" /> : <Users size={12} className="text-secondary" />}
-                      Access Level
+                      <Fingerprint size={12} className="text-secondary" />
+                      Provisioning Level
                     </Label>
                     <div className="flex items-center gap-3">
                       <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'seller' ? 'text-secondary' : 'text-muted-foreground'}`}>Seller</span>
@@ -211,7 +213,7 @@ export default function Home() {
               onClick={() => setIsSignUp(!isSignUp)}
               className={`text-[9px] font-black ${isSignUp ? 'text-secondary' : 'text-primary'} uppercase tracking-[0.2em] hover:underline`}
             >
-              {isSignUp ? "Switch to Secure Login" : "New Terminal? Register Role"}
+              {isSignUp ? "Already Registered? Authorize" : "New User? Register Mandatory Role"}
             </button>
             <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">System Architecture: Cloud Native Intelligence</p>
           </div>
@@ -220,7 +222,34 @@ export default function Home() {
     );
   }
 
-  // MAIN PORTAL ROUTING (STRICT ROLE CONDITION)
+  // 3. AUTHENTICATED BUT PROFILE MISSING (MANDATORY IDENTITY CHECK)
+  if (user && !profile && !profileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <Card className="max-w-md w-full glass-morphism p-10 border-t-4 border-destructive shadow-2xl rounded-[2.5rem]">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center text-destructive">
+              <ShieldAlert size={32} />
+            </div>
+            <CardTitle className="font-headline text-2xl font-black uppercase tracking-tighter">Identity <span className="text-destructive">Glitched</span></CardTitle>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-widest mt-2 border-y border-border py-2">
+              Authenticated session found, but database profile is missing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-4">
+            <p className="text-[10px] text-muted-foreground uppercase font-bold text-center leading-relaxed">
+              Entry is denied. Your account exists in Auth but has no provisioned role. Please terminate this session and register correctly.
+            </p>
+            <Button onClick={handleLogout} variant="destructive" className="w-full py-7 rounded-2xl font-black uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all">
+              Terminate Corrupt Session
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 4. MAIN PORTAL ROUTING (VERIFIED ROLE)
   return (
     <div className="min-h-screen bg-background text-foreground animate-in fade-in duration-1000">
       <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80 shadow-sm backdrop-blur-xl">
