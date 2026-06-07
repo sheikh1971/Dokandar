@@ -19,7 +19,8 @@ import {
   LogIn, 
   ShieldCheck,
   Building2,
-  Users
+  Users,
+  Key
 } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
@@ -116,18 +117,22 @@ export default function Home() {
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 rounded-full blur-[120px]" />
 
-        <div className="max-w-md w-full glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 border-primary shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+        <div className={`max-w-md w-full glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 ${isSignUp ? 'border-secondary' : 'border-primary'} shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 transition-all duration-500`}>
           <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-            <ShieldAlert size={120} />
+            {isSignUp ? <Key size={120} /> : <ShieldAlert size={120} />}
           </div>
           
           <div className="text-center space-y-3 relative z-10">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg transform hover:rotate-12 transition-transform duration-500">
+            <div className={`mx-auto w-16 h-16 rounded-2xl ${isSignUp ? 'bg-secondary' : 'bg-primary'} flex items-center justify-center shadow-lg transform hover:rotate-12 transition-transform duration-500`}>
               <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
             </div>
             <div className="space-y-1">
-              <h2 className="font-headline text-2xl font-black uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h2>
-              <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Secure Business Intelligence Terminal</p>
+              <h2 className="font-headline text-2xl font-black uppercase tracking-tighter">
+                DOKAN<span className={isSignUp ? 'text-secondary' : 'text-primary'}>HISHAB</span>
+              </h2>
+              <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">
+                {isSignUp ? "New Identity Provisioning Terminal" : "Secure Business Intelligence Terminal"}
+              </p>
             </div>
           </div>
 
@@ -135,7 +140,7 @@ export default function Home() {
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identity (Email)</Label>
               <div className="relative group">
-                <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                <Mail className={`absolute left-4 top-4 text-muted-foreground group-focus-within:${isSignUp ? 'text-secondary' : 'text-primary'} transition-colors`} size={18} />
                 <Input 
                   type="email" 
                   placeholder="name@shop.com" 
@@ -149,7 +154,7 @@ export default function Home() {
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Access Token (Password)</Label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                <Lock className={`absolute left-4 top-4 text-muted-foreground group-focus-within:${isSignUp ? 'text-secondary' : 'text-primary'} transition-colors`} size={18} />
                 <Input 
                   type="password" 
                   placeholder="••••••••" 
@@ -166,27 +171,33 @@ export default function Home() {
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2 bg-muted/20 p-5 rounded-2xl border border-border/50">
                  <div className="flex items-center justify-between mb-2">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      {authRole === 'admin' ? <Building2 size={12} className="text-primary" /> : <Users size={12} className="text-primary" />}
-                      Portal Access Role
+                      {authRole === 'admin' ? <Building2 size={12} className="text-secondary" /> : <Users size={12} className="text-secondary" />}
+                      Access Level
                     </Label>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'seller' ? 'text-primary' : 'text-muted-foreground'}`}>Seller</span>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'seller' ? 'text-secondary' : 'text-muted-foreground'}`}>Seller</span>
                       <Switch 
                         checked={authRole === "admin"} 
                         onCheckedChange={(checked) => setAuthRole(checked ? "admin" : "seller")}
-                        className="data-[state=checked]:bg-primary"
+                        className="data-[state=checked]:bg-secondary"
                       />
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'admin' ? 'text-primary' : 'text-muted-foreground'}`}>Admin</span>
+                      <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'admin' ? 'text-secondary' : 'text-muted-foreground'}`}>Admin</span>
                     </div>
                  </div>
-                 <p className="text-[8px] text-primary font-black uppercase tracking-[0.2em] text-center border-t border-border/30 pt-3">
-                    {authRole === 'admin' ? 'ELEVATED PRIVILEGES: SUPER ADMIN' : 'STANDARD POS ACCESS: SELLER'}
-                 </p>
+                 <div className={`p-2 rounded-xl border text-center transition-colors duration-300 ${authRole === 'admin' ? 'bg-secondary/10 border-secondary/20' : 'bg-muted/40 border-border'}`}>
+                   <p className={`text-[8px] font-black uppercase tracking-[0.2em] ${authRole === 'admin' ? 'text-secondary' : 'text-muted-foreground'}`}>
+                      {authRole === 'admin' ? 'UNRESTRICTED OWNER ACCESS: SUPER ADMIN' : 'STAFF POS PORTAL: SELLER'}
+                   </p>
+                 </div>
               </div>
             )}
 
             <div className="pt-2">
-              <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest" disabled={isAuthenticating}>
+              <Button 
+                type="submit" 
+                className={`w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all ${isSignUp ? 'bg-secondary hover:bg-secondary/90' : 'bg-primary hover:bg-primary/90'} uppercase tracking-widest`} 
+                disabled={isAuthenticating}
+              >
                 {isAuthenticating ? <Loader2 className="animate-spin" /> : (isSignUp ? "Provision Identity" : "Authorize Entry")}
               </Button>
             </div>
@@ -195,7 +206,7 @@ export default function Home() {
           <div className="pt-4 text-center space-y-4">
             <button 
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-[9px] font-black text-primary uppercase tracking-[0.2em] hover:underline"
+              className={`text-[9px] font-black ${isSignUp ? 'text-secondary' : 'text-primary'} uppercase tracking-[0.2em] hover:underline`}
             >
               {isSignUp ? "Switch to Secure Login" : "New Terminal? Register Role"}
             </button>
@@ -223,7 +234,7 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <div className="hidden md:flex flex-col items-end">
               <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.email?.split('@')[0]}</span>
-              <span className="text-[9px] text-primary uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
+              <span className={`text-[9px] uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${profile?.role === 'admin' ? 'text-secondary bg-secondary/5 border-secondary/10' : 'text-primary bg-primary/5 border-primary/10'}`}>
                 <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
                 {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
               </span>
