@@ -6,10 +6,10 @@
       "description": "Information about the user and their assigned role.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "role": { "type": "string", "enum": ["owner", "seller"] },
-        "displayName": { "type": "string" }
+        "uid": { "type": "string", "description": "The unique ID of the user." },
+        "email": { "type": "string", "format": "email", "description": "The email address of the user." },
+        "role": { "type": "string", "enum": ["owner", "seller"], "description": "The role of the user, either owner or seller." },
+        "displayName": { "type": "string", "description": "The display name of the user." }
       },
       "required": ["uid", "email", "role"]
     },
@@ -57,11 +57,11 @@
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Any authenticated user can create a sale. Users with the owner role can read all sales documents."
+      "description": "Any authenticated user can create a sale record. Users with the 'owner' role in their user profile document can read all sale records."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Any authenticated user can create an expense. Users with the owner role can read all expense documents."
+      "description": "Any authenticated user can create an expense record. Users with the 'owner' role in their user profile document can read all expense records."
     }
   }
 }

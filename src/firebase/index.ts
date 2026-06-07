@@ -4,6 +4,7 @@
 /**
  * @fileOverview Standard Firebase initialization with persistence and security rule triggers.
  * Updated to ensure rules deployment watcher is triggered.
+ * Rules Engine Version: 2.1
  */
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
