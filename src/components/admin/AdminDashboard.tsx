@@ -22,7 +22,9 @@ import {
   Package,
   Plus,
   Trash2,
-  Table as TableIcon
+  Table as TableIcon,
+  Zap,
+  Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +40,7 @@ import {
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
 import { useFirestore, useCollection, useUser } from "@/firebase";
 import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
-import { startOfWeek, startOfMonth, startOfYear, isAfter, format } from "date-fns";
+import { startOfWeek, startOfMonth, startOfYear, isAfter, format, subDays } from "date-fns";
 import { 
   Bar, 
   BarChart, 
@@ -64,18 +66,20 @@ export function AdminDashboard() {
   const { firestore } = useFirestore();
   const { user } = useUser();
 
+  // ONLY query if user is logged in to avoid Permission Denied during "Building Phase"
   const salesQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, "sales"), orderBy("timestamp", "desc"));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const expensesQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, "expenses"), orderBy("timestamp", "desc"));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const productsQuery = useMemo(() => {
     if (!firestore) return null;
+    // Products are public read, so this can fire anytime
     return query(collection(firestore, "products"), orderBy("name", "asc"));
   }, [firestore]);
 
@@ -92,6 +96,41 @@ export function AdminDashboard() {
       case "monthly": filterDate = startOfMonth(now); break;
       case "yearly": filterDate = startOfYear(now); break;
       default: filterDate = new Date(0);
+    }
+
+    // IF NOT LOGGED IN, Provide high-fidelity Mock Data for the "Building Phase"
+    if (!user) {
+      const mockSales = Array.from({ length: 15 }).map((_, i) => ({
+        id: `MOCK-SALE-${i}`,
+        total: Math.floor(Math.random() * 2000) + 500,
+        sellerName: "System Agent",
+        timestamp: { toDate: () => subDays(now, i) },
+        items: [{ name: "Demo Product", qty: 2 }]
+      }));
+      
+      const mockExpenses = Array.from({ length: 5 }).map((_, i) => ({
+        id: `MOCK-EXP-${i}`,
+        amount: Math.floor(Math.random() * 500) + 100,
+        category: "Operational",
+        description: "Building Phase Mock",
+        timestamp: { toDate: () => subDays(now, i * 2) }
+      }));
+
+      const totalRevenue = mockSales.reduce((acc, s) => acc + s.total, 0);
+      const totalExpenses = mockExpenses.reduce((acc, e) => acc + e.amount, 0);
+
+      const chartData = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => ({
+        name: day,
+        sales: Math.floor(Math.random() * 5000) + 1000
+      }));
+
+      return { 
+        totalRevenue, totalExpenses, netProfit: totalRevenue - totalExpenses,
+        salesCount: mockSales.length, expensesCount: mockExpenses.length,
+        sales: mockSales, expenses: mockExpenses,
+        chartData, teamStats: [{ name: "Demo Seller", total: totalRevenue, count: mockSales.length }],
+        isMock: true
+      };
     }
 
     const filteredSales = rawSales?.filter(s => {
@@ -133,9 +172,10 @@ export function AdminDashboard() {
       expensesCount: filteredExpenses.length,
       sales: filteredSales,
       expenses: filteredExpenses,
-      chartData, teamStats
+      chartData, teamStats,
+      isMock: false
     };
-  }, [rawSales, rawExpenses, period]);
+  }, [rawSales, rawExpenses, period, user]);
 
   const handleAddProduct = () => {
     if (!firestore || !newProductName || !newProductPrice) return;
@@ -179,6 +219,12 @@ export function AdminDashboard() {
         </div>
         
         <div className="flex items-center gap-3">
+          {stats.isMock && (
+            <div className="hidden lg:flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 px-4 py-2 rounded-2xl animate-pulse">
+              <Zap className="text-yellow-500" size={14} />
+              <span className="text-[9px] font-black text-yellow-600 uppercase tracking-widest">Building Phase: Simulating Data</span>
+            </div>
+          )}
           <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
             <SelectTrigger className="w-[140px] h-10 rounded-2xl border-border bg-muted font-black text-[10px] uppercase">
               <SelectValue />
@@ -324,6 +370,12 @@ export function AdminDashboard() {
                       </div>
                     </div>
                   ))}
+                  {!products?.length && (
+                    <div className="flex flex-col items-center justify-center py-20 opacity-30">
+                      <Package size={40} className="mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">No Products Detected</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -369,6 +421,12 @@ export function AdminDashboard() {
                     </div>
                   </div>
                 ))}
+                {!stats.sales.length && (
+                  <div className="flex flex-col items-center justify-center py-40 opacity-20">
+                    <History size={60} className="mb-6" />
+                    <p className="text-xs font-black uppercase tracking-[0.3em]">No Transactions Logged</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
