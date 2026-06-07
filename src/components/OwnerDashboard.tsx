@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { 
   TrendingUp, 
@@ -24,20 +25,33 @@ import {
   YAxis
 } from "recharts";
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
-
-const MOCK_DATA = [
-  { name: 'Mon', revenue: 4000, expenses: 2400 },
-  { name: 'Tue', revenue: 3000, expenses: 1398 },
-  { name: 'Wed', revenue: 5000, expenses: 2800 },
-  { name: 'Thu', revenue: 2780, expenses: 1908 },
-  { name: 'Fri', revenue: 4890, expenses: 2800 },
-  { name: 'Sat', revenue: 5390, expenses: 3800 },
-  { name: 'Sun', revenue: 6490, expenses: 4300 },
-];
+import { useFirestore, useCollection } from "@/firebase";
+import { collection, query, orderBy, limit } from "firebase/firestore";
 
 export function OwnerDashboard() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const { firestore } = useFirestore();
+
+  const salesQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "sales"), orderBy("timestamp", "desc"), limit(50));
+  }, [firestore]);
+
+  const expensesQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "expenses"), orderBy("timestamp", "desc"), limit(50));
+  }, [firestore]);
+
+  const { data: sales } = useCollection(salesQuery);
+  const { data: expenses } = useCollection(expensesQuery);
+
+  const stats = useMemo(() => {
+    const totalRevenue = sales?.reduce((acc, s) => acc + (s.total || 0), 0) || 0;
+    const totalExpenses = expenses?.reduce((acc, e) => acc + (e.amount || 0), 0) || 0;
+    const netProfit = totalRevenue - totalExpenses;
+    return { totalRevenue, totalExpenses, netProfit };
+  }, [sales, expenses]);
 
   const handleGenerateAI = async () => {
     setIsAiLoading(true);
@@ -79,71 +93,61 @@ export function OwnerDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="REVENUE" 
-          value="৳42,500" 
-          change="+12.5%" 
+          value={`৳${stats.totalRevenue.toLocaleString()}`} 
+          change="LIVE" 
           trend="up" 
           color="primary" 
           icon={<DollarSign size={20} />} 
         />
         <StatCard 
           title="EXPENSES" 
-          value="৳18,200" 
-          change="+2.4%" 
+          value={`৳${stats.totalExpenses.toLocaleString()}`} 
+          change="LIVE" 
           trend="down" 
           color="destructive" 
           icon={<TrendingDown size={20} />} 
         />
         <StatCard 
           title="NET PROFIT" 
-          value="৳24,300" 
-          change="+18.1%" 
+          value={`৳${stats.netProfit.toLocaleString()}`} 
+          change="LIVE" 
           trend="up" 
           color="success" 
           icon={<TrendingUp size={20} />} 
         />
         <StatCard 
-          title="CASH DISCREPANCY" 
-          value="-৳450" 
-          change="UNVERIFIED" 
+          title="SYSTEM STATUS" 
+          value="STABLE" 
+          change="SYNCED" 
           trend="none" 
-          color="destructive" 
-          icon={<AlertTriangle size={20} />} 
+          color="primary" 
+          icon={<Activity size={20} />} 
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales Chart */}
         <Card className="lg:col-span-2 glass-morphism">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold tracking-wide text-primary">REVENUE PERFORMANCE</CardTitle>
+            <CardTitle className="text-sm font-semibold tracking-wide text-primary">TRANSACTION FEED</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={MOCK_DATA}>
-                <defs>
-                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `৳${value}`} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'white', borderColor: 'hsl(var(--border))', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  itemStyle={{ color: 'hsl(var(--primary))' }}
-                />
-                <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <CardContent className="space-y-3">
+             {sales?.slice(0, 5).map((sale, i) => (
+                <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-muted/20 border border-border">
+                  <div>
+                    <p className="text-sm font-semibold">Sale by {sale.sellerName || 'Staff'}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">{sale.timestamp?.toDate()?.toLocaleString()}</p>
+                  </div>
+                  <span className="text-sm font-bold text-primary">+৳{sale.total}</span>
+                </div>
+             ))}
+             {!sales?.length && <p className="text-center text-muted-foreground text-xs py-8">No recent transactions.</p>}
           </CardContent>
         </Card>
 
-        {/* AI Insight Box */}
         <Card className="glass-morphism border-primary/10">
           <CardHeader>
             <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
-              <BrainCircuit size={18} /> PROFIT ANALYTICS
+              <BrainCircuit size={18} /> AI ANALYTICS
             </CardTitle>
             <CardDescription className="text-xs">Weekly Performance Review</CardDescription>
           </CardHeader>
@@ -168,25 +172,20 @@ export function OwnerDashboard() {
         <Card className="glass-morphism">
           <CardHeader>
             <CardTitle className="text-sm font-semibold text-destructive flex items-center gap-2">
-              <AlertTriangle size={18} /> ANOMALY DETECTION
+              <AlertTriangle size={18} /> RECENT EXPENSES
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {[
-              { date: "May 24", desc: "Cash Mismatch @ Shift End", amt: "-৳120", type: "low" },
-              { date: "May 22", desc: "Unexpected Return Entry", amt: "৳500", type: "high" },
-              { date: "May 20", desc: "Drawer Void Exception", amt: "৳0", type: "med" },
-            ].map((log, i) => (
+            {expenses?.slice(0, 3).map((exp, i) => (
               <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-muted/20 border border-border hover:bg-muted/40 transition-colors">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{log.desc}</p>
-                  <p className="text-[10px] text-muted-foreground font-medium uppercase">{log.date}</p>
+                  <p className="text-sm font-semibold text-foreground">{exp.description || exp.category}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase">{exp.timestamp?.toDate()?.toLocaleDateString()}</p>
                 </div>
-                <span className={`text-sm font-bold ${log.amt.startsWith('-') ? 'text-destructive' : 'text-primary'}`}>
-                  {log.amt}
-                </span>
+                <span className="text-sm font-bold text-destructive">-৳{exp.amount}</span>
               </div>
             ))}
+            {!expenses?.length && <p className="text-center text-muted-foreground text-xs py-8">No expense records.</p>}
           </CardContent>
         </Card>
 

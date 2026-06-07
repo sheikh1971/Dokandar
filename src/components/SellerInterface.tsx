@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -8,11 +9,22 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, Banknote, Package, Plus, Search, Trash2, ArrowRightLeft, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useFirestore, useUser } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export function SellerInterface() {
   const { toast } = useToast();
+  const { firestore } = useFirestore();
+  const { user } = useUser();
   const [lang, setLang] = useState<"bn" | "en">("bn");
   const [cart, setCart] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
+  
+  // Expense form state
+  const [expenseDesc, setExpenseDesc] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseCat, setExpenseCat] = useState("");
 
   const t = {
     bn: {
@@ -49,16 +61,69 @@ export function SellerInterface() {
     }
   }[lang];
 
-  const addToCart = () => {
-    setCart([...cart, { id: Math.random().toString(), name: "Sample Product", price: 120, qty: 1 }]);
+  const addToCart = (product: { name: string, price: number }) => {
+    setCart([...cart, { id: Math.random().toString(), name: product.name, price: product.price, qty: 1 }]);
   };
 
-  const handleCheckout = () => {
-    toast({
-      title: lang === "bn" ? "সফল হয়েছে" : "Success",
-      description: lang === "bn" ? "বিক্রি রেকর্ড করা হয়েছে" : "Sale recorded successfully",
-    });
-    setCart([]);
+  const handleCheckout = async () => {
+    if (!firestore || !user) return;
+
+    const total = cart.reduce((acc, curr) => acc + curr.price * curr.qty, 0);
+    const saleData = {
+      items: cart,
+      total,
+      timestamp: serverTimestamp(),
+      sellerId: user.uid,
+      sellerName: user.displayName
+    };
+
+    addDoc(collection(firestore, "sales"), saleData)
+      .then(() => {
+        toast({
+          title: lang === "bn" ? "সফল হয়েছে" : "Success",
+          description: lang === "bn" ? "বিক্রি রেকর্ড করা হয়েছে" : "Sale recorded successfully",
+        });
+        setCart([]);
+      })
+      .catch(async (err) => {
+        const pErr = new FirestorePermissionError({
+          path: "sales",
+          operation: "create",
+          requestResourceData: saleData
+        });
+        errorEmitter.emit("permission-error", pErr);
+      });
+  };
+
+  const handleSubmitExpense = async () => {
+    if (!firestore || !user || !expenseAmount) return;
+
+    const expenseData = {
+      description: expenseDesc,
+      amount: parseFloat(expenseAmount),
+      category: expenseCat,
+      timestamp: serverTimestamp(),
+      sellerId: user.uid
+    };
+
+    addDoc(collection(firestore, "expenses"), expenseData)
+      .then(() => {
+        toast({
+          title: "Expense Added",
+          description: "Expense record saved."
+        });
+        setExpenseDesc("");
+        setExpenseAmount("");
+        setExpenseCat("");
+      })
+      .catch(async (err) => {
+        const pErr = new FirestorePermissionError({
+          path: "expenses",
+          operation: "create",
+          requestResourceData: expenseData
+        });
+        errorEmitter.emit("permission-error", pErr);
+      });
   };
 
   return (
@@ -101,16 +166,25 @@ export function SellerInterface() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                  {[
+                    { name: "Coffee", price: 60 },
+                    { name: "Sandwich", price: 120 },
+                    { name: "Juice", price: 80 },
+                    { name: "Pastry", price: 150 },
+                    { name: "Water", price: 20 },
+                    { name: "Tea", price: 40 },
+                    { name: "Soda", price: 50 },
+                    { name: "Chips", price: 30 }
+                  ].map((prod, i) => (
                     <Button 
                       key={i} 
                       variant="ghost" 
-                      onClick={addToCart}
+                      onClick={() => addToCart(prod)}
                       className="h-28 flex flex-col items-center justify-center border border-border hover:border-primary/50 hover:bg-primary/5 transition-all rounded-xl shadow-sm"
                     >
                       <Package size={24} className="mb-3 text-primary/60" />
-                      <span className="text-xs font-semibold">Product {i}</span>
-                      <span className="text-xs text-muted-foreground mt-1 font-bold">৳150</span>
+                      <span className="text-xs font-semibold">{prod.name}</span>
+                      <span className="text-xs text-muted-foreground mt-1 font-bold">৳{prod.price}</span>
                     </Button>
                   ))}
                 </div>
@@ -126,13 +200,17 @@ export function SellerInterface() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2">
-                  {cart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center bg-muted/40 p-3 rounded-lg border border-border">
+                  {cart.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center bg-muted/40 p-3 rounded-lg border border-border">
                       <div>
                         <p className="text-sm font-semibold">{item.name}</p>
                         <p className="text-xs text-muted-foreground font-medium">৳{item.price} x {item.qty}</p>
                       </div>
-                      <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10">
+                      <Button variant="ghost" size="icon" onClick={() => {
+                        const newCart = [...cart];
+                        newCart.splice(idx, 1);
+                        setCart(newCart);
+                      }} className="text-destructive h-8 w-8 hover:bg-destructive/10">
                         <Trash2 size={14} />
                       </Button>
                     </div>
@@ -169,19 +247,19 @@ export function SellerInterface() {
             <CardContent className="space-y-5">
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.productName} / Description</Label>
-                <Input placeholder="Rent, Electricity, Supplies..." className="bg-muted/30 border-border focus:border-primary/50" />
+                <Input value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Rent, Electricity, Supplies..." className="bg-muted/30 border-border focus:border-primary/50" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.amount}</Label>
-                  <Input type="number" placeholder="0.00" className="bg-muted/30 border-border focus:border-primary/50" />
+                  <Input type="number" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} placeholder="0.00" className="bg-muted/30 border-border focus:border-primary/50" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.category}</Label>
-                  <Input placeholder="Operations..." className="bg-muted/30 border-border focus:border-primary/50" />
+                  <Input value={expenseCat} onChange={(e) => setExpenseCat(e.target.value)} placeholder="Operations..." className="bg-muted/30 border-border focus:border-primary/50" />
                 </div>
               </div>
-              <Button className="w-full bg-primary text-primary-foreground font-bold py-6 hover:bg-primary/90">
+              <Button onClick={handleSubmitExpense} className="w-full bg-primary text-primary-foreground font-bold py-6 hover:bg-primary/90">
                 <Plus className="mr-2" size={16} /> {t.submit}
               </Button>
             </CardContent>
@@ -191,7 +269,7 @@ export function SellerInterface() {
         <TabsContent value="inventory">
           <div className="grid gap-4">
              <div className="flex items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl text-primary font-semibold text-sm">
-                <CheckCircle2 size={18} />
+                <ShieldCheck size={18} />
                 <span>Real-time Stock Monitor Active & Secured</span>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -1,0 +1,67 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Information about the user and their assigned role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["owner", "seller"] },
+        "displayName": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Sale": {
+      "title": "Sale Record",
+      "description": "A record of a transaction made by a seller.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "total": { "type": "number" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "qty": { "type": "number" }
+            }
+          }
+        },
+        "sellerId": { "type": "string" }
+      }
+    },
+    "Expense": {
+      "title": "Expense Record",
+      "description": "A record of business costs.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "sellerId": { "type": "string" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Stores user roles and profile details."
+    },
+    "/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Global collection of sales transactions."
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Global collection of business expenses."
+    }
+  }
+}
