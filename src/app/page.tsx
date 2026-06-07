@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { SellerInterface } from "@/components/SellerInterface";
-import { OwnerDashboard } from "@/components/OwnerDashboard";
+import { SellerPortal } from "@/components/seller/SellerPortal";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,11 +88,12 @@ export default function Home() {
 
   const handleLogout = () => {
     if (auth) {
-      signOut(auth);
-      setView(null);
-      toast({
-        title: "Session Terminated",
-        description: "Logged out securely.",
+      signOut(auth).then(() => {
+        setView(null);
+        toast({
+          title: "Session Terminated",
+          description: "Logged out securely.",
+        });
       });
     }
   };
@@ -251,7 +252,7 @@ export default function Home() {
 
       <main className="p-6">
         <div className="max-w-7xl mx-auto">
-          {view === "admin" ? <OwnerDashboard /> : <SellerInterface />}
+          {view === "admin" ? <AdminDashboard /> : <SellerPortal />}
         </div>
       </main>
     </div>
