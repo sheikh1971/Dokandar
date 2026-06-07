@@ -9,10 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, Key, User as UserIcon } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
-import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { signOut, signInWithEmailAndPassword } from "firebase/auth";
 import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator";
 
 export default function Home() {
   const { auth } = useAuth();
@@ -33,10 +32,12 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
-  // Auto-view assignment based on role when logged in as admin
+  // Auto-view assignment based on role when logged in
   useEffect(() => {
     if (!profileLoading && user && profile?.role === "admin") {
       setView("admin");
+    } else if (!profileLoading && user && profile?.role !== "admin") {
+      setView("seller");
     }
   }, [profile, profileLoading, user]);
 
@@ -70,6 +71,7 @@ export default function Home() {
           title: "Session Terminated",
           description: "Logged out safely.",
         });
+        setView("seller");
       });
     }
   };
@@ -87,7 +89,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* PERSISTENT HEADER WITH BOTH PORTALS ACCESSIBLE */}
+      {/* PERSISTENT HEADER */}
       <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
@@ -98,60 +100,32 @@ export default function Home() {
           </h1>
         </div>
 
-        {/* VIEW SELECTOR - ACCESSIBLE WITHOUT AUTH */}
-        <div className="flex items-center gap-4">
-          <div className="flex gap-1 p-1 bg-muted rounded-2xl border border-border shadow-inner">
-            <Button
-              variant={view === "seller" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setView("seller")}
-              className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
-                view === "seller" ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground"
-              }`}
-            >
-              <ShoppingBag className="mr-2" size={14} />
-              SELLER POS
-            </Button>
-            <Button
-              variant={view === "admin" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setView("admin")}
-              className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
-                view === "admin" ? "bg-secondary text-secondary-foreground shadow-md" : "text-muted-foreground"
-              }`}
-            >
-              <LayoutDashboard className="mr-2" size={14} />
-              SUPER ADMIN
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-3 pl-4 border-l border-border">
-            {user ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden md:flex flex-col items-end">
-                  <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.email?.split('@')[0]}</span>
-                  <span className="text-[9px] text-primary uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
-                    <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
-                    {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
-                  </span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive hover:bg-destructive/10 h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
-                  <LogOut size={18} />
-                </Button>
+        <div className="flex items-center gap-3 pl-4 border-l border-border">
+          {user ? (
+            <div className="flex items-center gap-3">
+              <div className="hidden md:flex flex-col items-end">
+                <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.email?.split('@')[0]}</span>
+                <span className="text-[9px] text-primary uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
+                  <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
+                  {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
+                </span>
               </div>
-            ) : (
-              <Button onClick={() => setShowLogin(!showLogin)} variant="outline" className="rounded-2xl font-black text-[10px] tracking-[0.2em] uppercase h-10 px-6 border-border hover:bg-muted">
-                <UserIcon size={14} className="mr-2" />
-                Auth
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive hover:bg-destructive/10 h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
+                <LogOut size={18} />
               </Button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <Button onClick={() => setShowLogin(!showLogin)} variant="outline" className="rounded-2xl font-black text-[10px] tracking-[0.2em] uppercase h-10 px-6 border-border hover:bg-muted">
+              <UserIcon size={14} className="mr-2" />
+              Auth
+            </Button>
+          )}
         </div>
       </header>
 
       <main className="p-6">
         <div className="max-w-7xl mx-auto">
-          {/* OPTIONAL LOGIN DRAWER/SECTION */}
+          {/* OPTIONAL LOGIN SECTION */}
           {showLogin && !user && (
             <div className="mb-12 max-w-md mx-auto glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 border-primary shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4">
               <div className="absolute top-0 right-0 p-4 opacity-5">
@@ -204,7 +178,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* MAIN APP SHELL CONTENT */}
+          {/* MAIN CONTENT AREA */}
           {view === "admin" ? <AdminDashboard /> : <SellerPortal />}
         </div>
       </main>
