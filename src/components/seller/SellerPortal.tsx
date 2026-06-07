@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils";
 
 export function SellerPortal() {
   const { toast } = useToast();
-  const { firestore } = useFirebase().firestore;
+  const { firestore } = useFirestore();
   const { user } = useUser();
   const [lang, setLang] = useState<"bn" | "en">("en");
   const [cart, setCart] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
