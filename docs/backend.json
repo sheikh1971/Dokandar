@@ -31,7 +31,8 @@
             }
           }
         },
-        "sellerId": { "type": "string" }
+        "sellerId": { "type": "string" },
+        "sellerName": { "type": "string" }
       }
     },
     "Expense": {
@@ -48,7 +49,7 @@
     }
   },
   "auth": {
-    "providers": ["google.com"]
+    "providers": ["google.com", "password"]
   },
   "firestore": {
     "/users/{userId}": {
@@ -57,11 +58,11 @@
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Any authenticated user can create a sale record. Users with the 'owner' role in their user profile document can read all sale records."
+      "description": "Any authenticated user can create a sale. Users with the 'owner' role in their profile can read all sales."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Any authenticated user can create an expense record. Users with the 'owner' role in their user profile document can read all expense records."
+      "description": "Any authenticated user can create an expense. Users with the 'owner' role in their profile can read all expenses."
     }
   }
 }

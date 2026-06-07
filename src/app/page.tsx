@@ -5,12 +5,15 @@ import { useState, useEffect, useMemo } from "react";
 import { SellerInterface } from "@/components/SellerInterface";
 import { OwnerDashboard } from "@/components/OwnerDashboard";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, ShoppingBag, Zap, LogIn, LogOut, AlertCircle, Copy, Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { LayoutDashboard, ShoppingBag, Zap, LogIn, LogOut, AlertCircle, Copy, Check, Mail, Lock } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
-import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Home() {
   const { auth } = useAuth();
@@ -22,6 +25,11 @@ export default function Home() {
   const [hostname, setHostname] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+
+  // Email login state
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -41,8 +49,6 @@ export default function Home() {
     }
   };
 
-  // Memoize user profile query to prevent infinite render loops
-  // We pause profile fetching while in the middle of a login/creation step
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user || isCreatingProfile) return null;
     return doc(firestore, "users", user.uid);
@@ -52,14 +58,13 @@ export default function Home() {
 
   const [view, setView] = useState<"seller" | "owner">("seller");
 
-  // Sync role to view if profile exists
   useEffect(() => {
     if (profile?.role) {
       setView(profile.role as "seller" | "owner");
     }
   }, [profile]);
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     if (!auth || !firestore) return;
     setAuthError(null);
     setIsCreatingProfile(true);
@@ -69,33 +74,64 @@ export default function Home() {
       const result = await signInWithPopup(auth, provider);
       const loggedUser = result.user;
 
-      // Ensure the profile document exists immediately after sign in
       const userRef = doc(firestore, "users", loggedUser.uid);
       await setDoc(userRef, {
         uid: loggedUser.uid,
         email: loggedUser.email,
         displayName: loggedUser.displayName,
-        role: "seller" // Default role for new users
+        role: "seller"
       }, { merge: true });
 
     } catch (error: any) {
-      console.error("Login Error:", error.code, error.message);
-      
       if (error.code === "auth/unauthorized-domain") {
         setAuthError("unauthorized-domain");
-      } else if (error.code === "auth/popup-blocked") {
-        toast({
-          variant: "destructive",
-          title: "Popup Blocked",
-          description: "Please enable popups for this site in your browser settings (usually in the address bar)."
-        });
       } else {
         toast({
           variant: "destructive",
           title: "Login Failed",
-          description: error.message || "An unexpected error occurred during login."
+          description: error.message
         });
       }
+    } finally {
+      setIsCreatingProfile(false);
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth || !firestore || !email || !password) return;
+    setIsCreatingProfile(true);
+
+    try {
+      let loggedUser;
+      if (isSigningUp) {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        loggedUser = result.user;
+      } else {
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        loggedUser = result.user;
+      }
+
+      // Owners log in via email/password in this setup
+      const userRef = doc(firestore, "users", loggedUser.uid);
+      await setDoc(userRef, {
+        uid: loggedUser.uid,
+        email: loggedUser.email,
+        displayName: loggedUser.email?.split('@')[0],
+        role: "owner"
+      }, { merge: true });
+
+      toast({
+        title: isSigningUp ? "Account Created" : "Welcome Back",
+        description: `Logged in as Owner`,
+      });
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Error",
+        description: error.message
+      });
     } finally {
       setIsCreatingProfile(false);
     }
@@ -119,45 +155,77 @@ export default function Home() {
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-        <div className="max-w-md w-full glass-morphism p-8 rounded-3xl text-center space-y-6">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
-            <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
-          </div>
-          <div className="space-y-2">
-            <h1 className="font-headline text-3xl font-bold">DOKAN<span className="text-primary">HISHAB</span></h1>
-            <p className="text-muted-foreground">Smart Business Ledger & Insights</p>
+        <div className="max-w-md w-full glass-morphism p-8 rounded-3xl space-y-6">
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
+              <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
+            </div>
+            <div className="space-y-1">
+              <h1 className="font-headline text-3xl font-bold">DOKAN<span className="text-primary">HISHAB</span></h1>
+              <p className="text-muted-foreground text-sm">Smart Business Ledger & Insights</p>
+            </div>
           </div>
 
           {authError === "unauthorized-domain" && (
-            <Alert variant="destructive" className="text-left bg-destructive/5 border-destructive/20 relative overflow-hidden">
+            <Alert variant="destructive" className="bg-destructive/5 border-destructive/20">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle className="font-bold">Unauthorized Domain</AlertTitle>
               <AlertDescription className="text-xs space-y-3">
                 <p>Firebase is blocking this login. You must add your current domain to the list of authorized domains in the Firebase Console.</p>
-                
                 <div className="flex items-center gap-2">
                   <div className="flex-1 bg-destructive/10 p-2 rounded font-mono text-[10px] break-all border border-destructive/20 select-all">
                     {hostname}
                   </div>
-                  <Button size="icon" variant="outline" className="h-8 w-8 shrink-0 bg-background hover:bg-muted" onClick={copyToClipboard}>
+                  <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={copyToClipboard}>
                     {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                   </Button>
-                </div>
-                
-                <div className="pt-2 text-[10px] opacity-80 italic leading-relaxed">
-                  Steps: Firebase Console &gt; Authentication &gt; Settings &gt; Authorized Domains &gt; Add Domain
                 </div>
               </AlertDescription>
             </Alert>
           )}
 
-          <Button onClick={handleLogin} className="w-full py-6 text-lg font-bold rounded-2xl shadow-md transition-all active:scale-95" size="lg">
-            <LogIn className="mr-2" /> Continue with Google
-          </Button>
-          
-          <p className="text-[10px] text-muted-foreground">
-            If nothing happens, please check if your browser blocked the login popup.
-          </p>
+          <Tabs defaultValue="google" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="google">Staff Portal</TabsTrigger>
+              <TabsTrigger value="email">Admin Portal</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="google" className="space-y-4">
+              <Button onClick={handleGoogleLogin} className="w-full py-6 text-lg font-bold rounded-2xl shadow-md transition-all active:scale-95" size="lg">
+                <LogIn className="mr-2" /> Continue with Google
+              </Button>
+              <p className="text-[10px] text-center text-muted-foreground">Standard access for sellers and staff.</p>
+            </TabsContent>
+
+            <TabsContent value="email">
+              <form onSubmit={handleEmailAuth} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 text-muted-foreground" size={16} />
+                    <Input id="email" type="email" placeholder="owner@shop.com" className="pl-10" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 text-muted-foreground" size={16} />
+                    <Input id="password" type="password" placeholder="••••••••" className="pl-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full py-6 font-bold rounded-2xl">
+                  {isSigningUp ? "Create Admin Account" : "Login as Owner"}
+                </Button>
+                <button 
+                  type="button" 
+                  onClick={() => setIsSigningUp(!isSigningUp)}
+                  className="w-full text-xs text-primary font-semibold hover:underline"
+                >
+                  {isSigningUp ? "Already have an admin account? Login" : "First time? Create admin account"}
+                </button>
+              </form>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     );
@@ -205,7 +273,7 @@ export default function Home() {
 
           <div className="flex items-center gap-2">
             <div className="hidden md:flex flex-col items-end">
-              <span className="text-xs font-bold leading-none">{user.displayName}</span>
+              <span className="text-xs font-bold leading-none">{user.displayName || user.email}</span>
               <span className="text-[10px] text-primary uppercase font-bold">{profile?.role || 'Seller'}</span>
             </div>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-destructive hover:bg-destructive/10">
