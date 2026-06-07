@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -10,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { LayoutDashboard, ShoppingBag, Zap, LogOut, AlertCircle, Copy, Check, Mail, Lock } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -24,7 +23,7 @@ export default function Home() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [hostname, setHostname] = useState<string>("");
   const [copied, setCopied] = useState(false);
-  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Email login state
   const [email, setEmail] = useState("");
@@ -49,9 +48,9 @@ export default function Home() {
   };
 
   const userProfileQuery = useMemo(() => {
-    if (!firestore || !user || isCreatingProfile) return null;
+    if (!firestore || !user) return null;
     return doc(firestore, "users", user.uid);
-  }, [firestore, user, isCreatingProfile]);
+  }, [firestore, user]);
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
@@ -65,14 +64,14 @@ export default function Home() {
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !firestore || !email || !password) return;
-    setIsCreatingProfile(true);
+    if (!auth || !email || !password) return;
+    setIsAuthenticating(true);
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Welcome Back",
-        description: `Logged in to Staff Portal`,
+        description: `Logged in to Seller Portal`,
       });
     } catch (error: any) {
       if (error.code === "auth/unauthorized-domain") {
@@ -85,23 +84,29 @@ export default function Home() {
         });
       }
     } finally {
-      setIsCreatingProfile(false);
+      setIsAuthenticating(false);
     }
   };
 
   const handleGoogleAuth = async () => {
-    if (!auth || !firestore) return;
-    setIsCreatingProfile(true);
+    if (!auth) return;
+    setIsAuthenticating(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
       toast({
         title: "Signed In",
-        description: "Staff access granted.",
+        description: "Seller access granted.",
       });
     } catch (error: any) {
       if (error.code === "auth/unauthorized-domain") {
         setAuthError("unauthorized-domain");
+      } else if (error.code === "auth/popup-blocked") {
+        toast({
+          variant: "destructive",
+          title: "Popup Blocked",
+          description: "Please allow popups for this site to sign in with Google.",
+        });
       } else {
         toast({
           variant: "destructive",
@@ -110,7 +115,7 @@ export default function Home() {
         });
       }
     } finally {
-      setIsCreatingProfile(false);
+      setIsAuthenticating(false);
     }
   };
 
@@ -118,7 +123,7 @@ export default function Home() {
     if (auth) signOut(auth);
   };
 
-  if (authLoading || (user && profileLoading) || isCreatingProfile) {
+  if (authLoading || (user && profileLoading) || isAuthenticating) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -145,7 +150,7 @@ export default function Home() {
 
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-xl font-bold text-foreground">Staff Portal</h2>
+              <h2 className="text-xl font-bold text-foreground">Seller Portal</h2>
               <p className="text-xs text-muted-foreground mt-1">Authorized Access Only</p>
             </div>
 
@@ -191,7 +196,7 @@ export default function Home() {
                     fill="#EA4335"
                   />
                 </svg>
-                Continue with Google
+                Sign in as Seller
               </Button>
 
               <div className="flex items-center gap-4 py-2">
@@ -202,13 +207,13 @@ export default function Home() {
 
               <form onSubmit={handleEmailAuth} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Staff Email</Label>
+                  <Label htmlFor="email">Seller Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 text-muted-foreground" size={16} />
                     <Input 
                       id="email" 
                       type="email" 
-                      placeholder="name@shop.com" 
+                      placeholder="seller@shop.com" 
                       className="pl-10" 
                       value={email} 
                       onChange={(e) => setEmail(e.target.value)} 
@@ -232,10 +237,10 @@ export default function Home() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full py-6 font-bold rounded-2xl">
-                  Staff Login
+                  Seller Login
                 </Button>
                 <p className="text-center text-[10px] text-muted-foreground mt-4 italic">
-                  Contact System Admin for account credentials.
+                  Credentials provided by Admin.
                 </p>
               </form>
             </div>
@@ -245,7 +250,6 @@ export default function Home() {
     );
   }
 
-  // If user is logged in but profile doesn't exist yet, show restricted message
   if (user && !profile && !profileLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
@@ -309,7 +313,7 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <div className="hidden md:flex flex-col items-end">
               <span className="text-xs font-bold leading-none">{user.displayName || user.email}</span>
-              <span className="text-[10px] text-primary uppercase font-bold">{profile?.role || 'Staff'}</span>
+              <span className="text-[10px] text-primary uppercase font-bold">{profile?.role || 'Seller'}</span>
             </div>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-destructive hover:bg-destructive/10">
               <LogOut size={18} />

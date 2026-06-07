@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -15,15 +14,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area,
-  XAxis,
-  YAxis
-} from "recharts";
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
 import { useFirestore, useCollection } from "@/firebase";
 import { collection, query, orderBy, limit } from "firebase/firestore";
@@ -89,7 +79,6 @@ export function OwnerDashboard() {
         </div>
       </div>
 
-      {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="REVENUE" 
@@ -134,7 +123,7 @@ export function OwnerDashboard() {
              {sales?.slice(0, 5).map((sale, i) => (
                 <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-muted/20 border border-border">
                   <div>
-                    <p className="text-sm font-semibold">Sale by {sale.sellerName || 'Staff'}</p>
+                    <p className="text-sm font-semibold">Sale by {sale.sellerName || 'Seller'}</p>
                     <p className="text-[10px] text-muted-foreground uppercase">{sale.timestamp?.toDate()?.toLocaleString()}</p>
                   </div>
                   <span className="text-sm font-bold text-primary">+৳{sale.total}</span>
