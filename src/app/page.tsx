@@ -33,7 +33,7 @@ export default function Home() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [authRole, setAuthRole] = useState<"admin" | "seller">("admin");
+  const [authRole, setAuthRole] = useState<"admin" | "seller">("seller");
   const [isSignUp, setIsSignUp] = useState(false);
 
   const userProfileQuery = useMemo(() => {
