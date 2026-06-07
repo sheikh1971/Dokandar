@@ -7,7 +7,7 @@ import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, Key } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -32,16 +32,16 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
-  // Robust Redirection Logic: Ensures Super Admin is prioritized
+  // Auto-view assignment based on role
   useEffect(() => {
-    if (!profileLoading && user && view === null) {
+    if (!profileLoading && user) {
       if (profile?.role === "admin") {
         setView("admin");
       } else {
         setView("seller");
       }
     }
-  }, [profile, profileLoading, user, view]);
+  }, [profile, profileLoading, user]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,14 +51,14 @@ export default function Home() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
-        title: "Access Authorized",
-        description: "Credentials verified successfully.",
+        title: "Authorization Success",
+        description: "Credentials verified.",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Authorization Failed",
-        description: "Invalid identity key or password.",
+        title: "Login Failed",
+        description: "Invalid credentials.",
       });
     } finally {
       setIsAuthenticating(false);
@@ -71,10 +71,6 @@ export default function Home() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      toast({
-        title: "Identity Verified",
-        description: "Google credentials accepted.",
-      });
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -92,23 +88,24 @@ export default function Home() {
         setView(null);
         toast({
           title: "Session Terminated",
-          description: "Logged out securely.",
+          description: "Logged out safely.",
         });
       });
     }
   };
 
-  if (authLoading || (user && (profileLoading || view === null)) || isAuthenticating) {
+  if (authLoading || (user && profileLoading) || isAuthenticating) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Permissions & Loading Intel...</p>
+          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Super Admin Credentials...</p>
         </div>
       </div>
     );
   }
 
+  // LOGIN SCREEN
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
@@ -123,14 +120,14 @@ export default function Home() {
             </div>
             <div className="space-y-1">
               <h1 className="font-headline text-3xl font-black uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h1>
-              <p className="text-muted-foreground text-[9px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Super Admin & Seller Portal</p>
+              <p className="text-muted-foreground text-[9px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Super Admin Command Center</p>
             </div>
           </div>
 
           <div className="space-y-6 relative z-10">
             <form onSubmit={handleEmailAuth} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identity (Email)</Label>
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Admin Email</Label>
                 <div className="relative group">
                   <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                   <Input 
@@ -145,7 +142,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Secure Key (Password)</Label>
+                <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
                 <div className="relative group">
                   <Lock className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                   <Input 
@@ -160,7 +157,7 @@ export default function Home() {
                 </div>
               </div>
               <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest">
-                Authorize Access
+                Authorize Login
               </Button>
             </form>
 
@@ -181,20 +178,57 @@ export default function Home() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
-              Google Identity
+              Google Admin Login
             </Button>
-
-            <div className="bg-muted/50 p-4 rounded-xl border border-border">
-              <p className="text-center text-[8px] text-muted-foreground leading-relaxed uppercase font-black tracking-widest">
-                Access is restricted to authorized identities managed in the Super Admin Console.
-              </p>
-            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // HELP VIEW FOR USERS NOT YET ASSIGNED 'ADMIN' ROLE
+  if (user && profile?.role !== "admin" && view !== "seller") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
+        <div className="max-w-md w-full glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 border-secondary shadow-2xl text-center">
+          <div className="space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center shadow-lg">
+              <Key className="text-secondary-foreground" size={32} />
+            </div>
+            <h2 className="font-headline text-2xl font-black uppercase">Role Assignment Required</h2>
+            <p className="text-muted-foreground text-xs leading-relaxed uppercase font-bold">
+              You are authenticated as <span className="text-foreground font-black">{user.email}</span>, but you have not been assigned the <span className="text-secondary font-black">admin</span> role in Firestore.
+            </p>
+          </div>
+
+          <div className="bg-muted p-6 rounded-2xl border border-border text-left space-y-4">
+            <p className="text-[10px] font-black uppercase text-muted-foreground">Setup Instructions:</p>
+            <ol className="text-[9px] font-bold space-y-2 uppercase text-foreground/70">
+              <li>1. Go to Firebase Console &gt; Firestore &gt; Data</li>
+              <li>2. Create a collection named <code className="text-secondary">users</code></li>
+              <li>3. Add a document with ID: <code className="text-primary bg-primary/5 px-1">{user.uid}</code></li>
+              <li>4. Add field: <code className="text-secondary">role</code>: "admin"</li>
+            </ol>
+            <div className="pt-2">
+              <p className="text-[8px] font-black text-muted-foreground uppercase">Your UID (Copy this):</p>
+              <p className="text-[10px] font-black select-all bg-background p-2 rounded border border-border mt-1">{user.uid}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <Button onClick={() => setView("seller")} variant="outline" className="w-full py-6 font-black uppercase tracking-widest text-[10px]">
+              Proceed to Seller Portal
+            </Button>
+            <Button onClick={handleLogout} variant="ghost" className="w-full text-destructive font-black uppercase tracking-widest text-[10px]">
+              Logout & Switch Account
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // MAIN APP SHELL
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80 shadow-sm">
