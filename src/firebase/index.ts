@@ -1,6 +1,10 @@
 
 'use client';
 
+/**
+ * @fileOverview Standard Firebase initialization with persistence and security rule triggers.
+ */
+
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { 

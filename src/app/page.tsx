@@ -42,7 +42,7 @@ export default function Home() {
   };
 
   // Memoize user profile query to prevent infinite render loops
-  // Delay query if we are currently in the middle of creating the profile
+  // We pause profile fetching while in the middle of a login/creation step
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user || isCreatingProfile) return null;
     return doc(firestore, "users", user.uid);
@@ -63,11 +63,13 @@ export default function Home() {
     if (!auth || !firestore) return;
     setAuthError(null);
     setIsCreatingProfile(true);
+    
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const loggedUser = result.user;
 
+      // Ensure the profile document exists immediately after sign in
       const userRef = doc(firestore, "users", loggedUser.uid);
       await setDoc(userRef, {
         uid: loggedUser.uid,
@@ -108,7 +110,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Zap className="animate-pulse text-primary" size={48} />
-          <p className="text-muted-foreground font-medium">Loading DOKANHISHAB...</p>
+          <p className="text-muted-foreground font-medium">Synchronizing DOKANHISHAB...</p>
         </div>
       </div>
     );
