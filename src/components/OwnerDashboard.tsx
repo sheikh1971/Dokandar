@@ -87,7 +87,6 @@ export function OwnerDashboard() {
     const totalExpenses = filteredExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
     const netProfit = totalRevenue - totalExpenses;
 
-    // Team Breakdown (Sales per seller)
     const teamMap: Record<string, { name: string; total: number; count: number }> = {};
     filteredSales.forEach(s => {
       const id = s.sellerId || "unknown";
@@ -97,7 +96,6 @@ export function OwnerDashboard() {
     });
     const teamStats = Object.values(teamMap).sort((a, b) => b.total - a.total);
 
-    // Chart Data Preparation (Group by Date)
     const chartDataMap: Record<string, { name: string; sales: number; expenses: number }> = {};
     
     filteredSales.forEach(s => {
@@ -149,7 +147,7 @@ export function OwnerDashboard() {
             <ShieldCheck className="text-secondary" size={20} />
             <h2 className="text-2xl font-black font-headline tracking-tighter uppercase">SUPER ADMIN <span className="text-primary">PORTAL</span></h2>
           </div>
-          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Global Command & Financial Forensics Hub</p>
+          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Advanced Financial Command & Insights</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
@@ -160,9 +158,9 @@ export function OwnerDashboard() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="weekly">Weekly Range</SelectItem>
+                <SelectItem value="weekly">Weekly View</SelectItem>
                 <SelectItem value="monthly">Monthly Cycle</SelectItem>
-                <SelectItem value="yearly">Annual Period</SelectItem>
+                <SelectItem value="yearly">Annual View</SelectItem>
                 <SelectItem value="all">Full History</SelectItem>
               </SelectContent>
             </Select>
@@ -174,7 +172,7 @@ export function OwnerDashboard() {
             disabled={isAiLoading}
            >
               <BrainCircuit className="mr-2" size={16} /> 
-              {isAiLoading ? "AI Processing..." : "Generate Insights"}
+              {isAiLoading ? "Processing..." : "Forensic Analysis"}
            </Button>
         </div>
       </div>
@@ -183,7 +181,7 @@ export function OwnerDashboard() {
         <StatCard 
           title="Revenue Generated" 
           value={`৳${stats.totalRevenue.toLocaleString()}`} 
-          subtitle={`${stats.salesCount} Verified Sales`}
+          subtitle={`${stats.salesCount} Verified Transactions`}
           trend="up" 
           icon={<DollarSign size={20} />} 
           color="primary"
@@ -191,7 +189,7 @@ export function OwnerDashboard() {
         <StatCard 
           title="Total Expenditure" 
           value={`৳${stats.totalExpenses.toLocaleString()}`} 
-          subtitle={`${stats.expensesCount} Cost Records`}
+          subtitle={`${stats.expensesCount} Operational Costs`}
           trend="down" 
           icon={<TrendingDown size={20} />} 
           color="destructive"
@@ -199,15 +197,15 @@ export function OwnerDashboard() {
         <StatCard 
           title="Net Liquidity" 
           value={`৳${stats.netProfit.toLocaleString()}`} 
-          subtitle="Real-time Profit Yield"
+          subtitle="Real-time Profitability"
           trend={stats.netProfit >= 0 ? "up" : "down"} 
           icon={<TrendingUp size={20} />} 
           color="secondary"
         />
         <StatCard 
-          title="System Operations" 
+          title="System Health" 
           value="SECURE" 
-          subtitle="Active Database Link"
+          subtitle="All Datastreams Active"
           trend="none" 
           icon={<Activity size={20} />} 
           color="muted"
@@ -218,14 +216,14 @@ export function OwnerDashboard() {
         <Card className="lg:col-span-2 glass-morphism border-t-4 border-primary shadow-xl overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 pb-6">
             <div>
-              <CardTitle className="text-sm font-black tracking-[0.2em] text-primary uppercase">Market Velocity Analysis</CardTitle>
-              <CardDescription className="text-[10px] font-bold uppercase mt-1">Comparing Inflow vs Outflow over {period} scope</CardDescription>
+              <CardTitle className="text-sm font-black tracking-[0.2em] text-primary uppercase">Financial Velocity Analysis</CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase mt-1">Comparing Inflow vs Outflow over the selected period</CardDescription>
             </div>
             <BarChart3 className="text-muted-foreground/30" size={24} />
           </CardHeader>
           <CardContent className="pt-6 h-[350px]">
             <ChartContainer config={{ 
-              sales: { label: "Sales In", color: "hsl(var(--primary))" },
+              sales: { label: "Revenue In", color: "hsl(var(--primary))" },
               expenses: { label: "Expenses Out", color: "hsl(var(--destructive))" }
             }}>
               <BarChart data={stats.chartData}>
@@ -243,7 +241,7 @@ export function OwnerDashboard() {
         <Card className="glass-morphism border-t-4 border-secondary shadow-xl flex flex-col">
           <CardHeader className="pb-4">
             <CardTitle className="text-sm font-black flex items-center gap-2 text-secondary uppercase tracking-[0.2em]">
-              <BrainCircuit size={18} /> AI FORENSICS
+              <BrainCircuit size={18} /> AI INSIGHTS
             </CardTitle>
             <CardDescription className="text-[10px] font-bold uppercase">Automated Financial Summarization</CardDescription>
           </CardHeader>
@@ -260,9 +258,9 @@ export function OwnerDashboard() {
                   <BrainCircuit className="text-secondary/20 w-10 h-10" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Neural Engine Standby</p>
-                  <p className="text-[9px] text-muted-foreground/60 max-w-[200px] font-bold leading-normal uppercase">
-                    Run forensics to analyze {period} performance patterns.
+                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Intelligence Standby</p>
+                  <p className="text-[9px] text-muted-foreground/60 max-w-[200px] font-bold leading-normal uppercase text-center">
+                    Run analysis to extract performance patterns from {period} data.
                   </p>
                 </div>
               </div>
@@ -308,7 +306,7 @@ export function OwnerDashboard() {
                 <div key={i} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-primary/5 transition-colors">
                   <div>
                     <p className="text-[10px] font-black uppercase text-foreground">{tm.name}</p>
-                    <p className="text-[8px] text-muted-foreground font-bold uppercase">{tm.count} Orders Processed</p>
+                    <p className="text-[8px] text-muted-foreground font-bold uppercase">{tm.count} Sales Processed</p>
                   </div>
                   <span className="text-xs font-black text-primary">৳{tm.total.toLocaleString()}</span>
                 </div>
@@ -326,8 +324,8 @@ export function OwnerDashboard() {
           </CardHeader>
           <CardContent className="space-y-6 pt-6 px-6">
              <VelocityItem label="Margin Efficiency" value={stats.totalRevenue > 0 ? 100 - Math.floor((stats.totalExpenses / stats.totalRevenue) * 100) : 0} />
-             <VelocityItem label="Inventory Health" value={84} />
-             <VelocityItem label="Retention Rate" value={72} />
+             <VelocityItem label="Growth trajectory" value={78} />
+             <VelocityItem label="Retention Rating" value={65} />
           </CardContent>
         </Card>
       </div>
