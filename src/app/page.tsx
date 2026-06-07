@@ -24,7 +24,6 @@ export default function Home() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [hostname, setHostname] = useState<string>("");
   const [copied, setCopied] = useState(false);
-  const [uidCopied, setUidCopied] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Email login state
@@ -49,18 +48,6 @@ export default function Home() {
     }
   };
 
-  const copyUidToClipboard = (uid: string) => {
-    if (typeof navigator !== 'undefined') {
-      navigator.clipboard.writeText(uid);
-      setUidCopied(true);
-      setTimeout(() => setUidCopied(false), 2000);
-      toast({
-        title: "UID Copied",
-        description: "Use this Document ID in the 'users' collection.",
-      });
-    }
-  };
-
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, "users", user.uid);
@@ -73,6 +60,8 @@ export default function Home() {
   useEffect(() => {
     if (profile?.role) {
       setView(profile.role as "seller" | "owner");
+    } else {
+      setView("seller"); // Default to seller if no profile exists
     }
   }, [profile]);
 
@@ -247,41 +236,6 @@ export default function Home() {
               </form>
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (user && !profile && !profileLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-        <div className="max-w-md w-full glass-morphism p-8 rounded-3xl space-y-6 text-center border-t-4 border-primary">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <AlertCircle className="text-primary" size={32} />
-          </div>
-          <h2 className="text-2xl font-bold uppercase tracking-tighter">Setup Required</h2>
-          <p className="text-muted-foreground text-sm font-medium">
-            Your account ({user.email}) is authenticated, but your profile needs to be added to the backend manually by the admin.
-          </p>
-
-          <div className="bg-muted/50 p-5 rounded-2xl text-left space-y-3 border border-border">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">User Identity (UID)</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-[11px] break-all font-mono bg-background p-2.5 rounded-lg border border-border text-primary font-bold">
-                {user.uid}
-              </code>
-              <Button size="icon" variant="ghost" className="h-10 w-10 shrink-0 bg-background border border-border" onClick={() => copyUidToClipboard(user.uid)}>
-                {uidCopied ? <CheckCircle2 size={18} className="text-green-600" /> : <Copy size={18} />}
-              </Button>
-            </div>
-            <p className="text-[9px] text-muted-foreground italic font-medium leading-relaxed">
-              Give this UID to the admin. They must create a document in the `users` collection with this UID as the ID and set your role.
-            </p>
-          </div>
-
-          <Button variant="outline" onClick={handleLogout} className="w-full rounded-2xl py-7 font-bold border-border">
-            Logout & Try Another Account
-          </Button>
         </div>
       </div>
     );
