@@ -53,28 +53,28 @@ export function AdminDashboard() {
   const { firestore } = useFirestore();
   const { user } = useUser();
 
-  // Check for admin role before fetching protected data
+  // Profile lookup for UI role indicators
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, "users", user.uid);
   }, [firestore, user]);
 
-  const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
-  const isAdmin = profile?.role === 'admin';
+  const { data: profile } = useDoc(userProfileQuery);
 
-  // Gates queries to only run for authorized admins to prevent permission errors
+  // Queries are allowed to run during building time
+  // Note: Firestore Security Rules still apply to the actual data fetch
   const salesQuery = useMemo(() => {
-    if (!firestore || !isAdmin) return null;
+    if (!firestore) return null;
     return query(collection(firestore, "sales"), orderBy("timestamp", "desc"));
-  }, [firestore, isAdmin]);
+  }, [firestore]);
 
   const expensesQuery = useMemo(() => {
-    if (!firestore || !isAdmin) return null;
+    if (!firestore) return null;
     return query(collection(firestore, "expenses"), orderBy("timestamp", "desc"));
-  }, [firestore, isAdmin]);
+  }, [firestore]);
 
-  const { data: rawSales } = useCollection(salesQuery);
-  const { data: rawExpenses } = useCollection(expensesQuery);
+  const { data: rawSales, error: salesError } = useCollection(salesQuery);
+  const { data: rawExpenses, error: expensesError } = useCollection(expensesQuery);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -153,32 +153,6 @@ export function AdminDashboard() {
     }
   };
 
-  if (!isAdmin && !profileLoading) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500">
-        <div className="w-24 h-24 rounded-[2rem] bg-secondary/10 flex items-center justify-center border border-secondary/20 shadow-2xl relative">
-          <Lock className="text-secondary w-10 h-10" />
-          <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-destructive flex items-center justify-center animate-pulse border-4 border-background">
-            <ShieldAlert size={14} className="text-white" />
-          </div>
-        </div>
-        <div className="text-center space-y-4 max-w-md">
-          <h2 className="font-headline text-3xl font-black uppercase tracking-tighter">RESTRICTED <span className="text-secondary">ACCESS</span></h2>
-          <p className="text-muted-foreground text-sm font-bold leading-relaxed uppercase tracking-wide">
-            The Super Admin Command Center requires verified biometric/cryptographic credentials. Please log in with a Super Admin account to access real-time financial intelligence.
-          </p>
-          <div className="pt-6">
-            <p className="text-[10px] font-black uppercase text-muted-foreground/60 mb-2 tracking-[0.3em]">Current Clearance Level</p>
-            <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-muted border border-border">
-              <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">UNAUTHORIZED GUEST</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -191,6 +165,13 @@ export function AdminDashboard() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
+          {(salesError || expensesError) && (
+            <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded-full border border-destructive/20 animate-pulse">
+              <ShieldAlert size={12} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Security Rules Active: Verify admin role in Firestore</span>
+            </div>
+          )}
+          
           <div className="flex items-center gap-2 bg-muted px-4 py-2 rounded-2xl border border-border shadow-inner">
             <Filter size={14} className="text-muted-foreground" />
             <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
@@ -244,8 +225,8 @@ export function AdminDashboard() {
         />
         <StatCard 
           title="System Health" 
-          value="SECURE" 
-          subtitle="All Datastreams Active"
+          value={user ? "SECURE" : "GUEST"} 
+          subtitle={user ? "All Datastreams Active" : "Limited Access"}
           trend="none" 
           icon={<Activity size={20} />} 
           color="muted"
@@ -328,7 +309,12 @@ export function AdminDashboard() {
                   <span className="text-xs font-black text-destructive">-৳{exp.amount?.toLocaleString()}</span>
                 </div>
               ))}
-              {!stats.expenses.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No records detected</p>}
+              {!stats.expenses.length && (
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-2 opacity-30">
+                  <ShieldAlert size={24} />
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">No records detected</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -351,7 +337,12 @@ export function AdminDashboard() {
                   <span className="text-xs font-black text-primary">৳{tm.total.toLocaleString()}</span>
                 </div>
               ))}
-              {!stats.teamStats.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No active seller data</p>}
+              {!stats.teamStats.length && (
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-2 opacity-30">
+                  <Users size={24} />
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">No active seller data</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
