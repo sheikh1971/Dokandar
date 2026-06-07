@@ -27,7 +27,8 @@ import {
   History,
   ShieldCheck,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Edit3
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection } from "@/firebase";
@@ -106,9 +107,10 @@ export function SellerPortal() {
       cart: "কার্ট",
       total: "মোট",
       checkout: "চেকআউট",
-      quickAdd: "দ্রুত পণ্য যোগ",
+      quickAdd: "দ্রুত পণ্য যোগ / মূল্য পরিবর্তন",
       manageProducts: "পণ্য পরিচালনা",
-      performance: "আজকের পারফরম্যান্স"
+      performance: "আজকের পারফরম্যান্স",
+      adjustHint: "পণ্যে ক্লিক করে দাম পরিবর্তন করুন"
     },
     en: {
       sales: "Daily Sales",
@@ -125,30 +127,27 @@ export function SellerPortal() {
       cart: "Cart",
       total: "Total",
       checkout: "Checkout",
-      quickAdd: "Quick Item",
+      quickAdd: "Quick Entry / Manual Price",
       manageProducts: "Manage Products",
-      performance: "Today's Performance"
+      performance: "Today's Performance",
+      adjustHint: "Click product to adjust price manually"
     }
   }[lang];
 
-  const addToCart = (product: { id: string, name: string, price: number }) => {
-    const existing = cart.find(item => item.id === product.id);
-    if (existing) {
-      setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item));
-    } else {
-      setCart([...cart, { id: product.id, name: product.name, price: product.price, qty: 1 }]);
-    }
+  const handleProductSelect = (product: { name: string, price: number }) => {
+    setQuickItemName(product.name);
+    setQuickItemPrice(product.price.toString());
     toast({
-      title: "Item Added",
-      description: `${product.name} added to cart.`,
-      duration: 1000
+      title: "Product Selected",
+      description: "Adjust name or price manually below.",
+      duration: 1500
     });
   };
 
   const handleQuickAdd = () => {
     if (!quickItemName || !quickItemPrice) return;
     const item = {
-      id: `quick-${Date.now()}`,
+      id: `manual-${Date.now()}`,
       name: quickItemName,
       price: parseFloat(quickItemPrice),
       qty: 1
@@ -156,6 +155,17 @@ export function SellerPortal() {
     setCart([...cart, item]);
     setQuickItemName("");
     setQuickItemPrice("");
+    toast({
+      title: "Item Added to Cart",
+      description: `${item.name} @ ৳${item.price}`,
+      duration: 1000
+    });
+  };
+
+  const updateCartItem = (idx: number, updates: Partial<{ price: number, qty: number }>) => {
+    const newCart = [...cart];
+    newCart[idx] = { ...newCart[idx], ...updates };
+    setCart(newCart);
   };
 
   const handleCheckout = async () => {
@@ -297,35 +307,45 @@ export function SellerPortal() {
         <TabsContent value="sales">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              {/* Quick Entry Card */}
-              <Card className="glass-morphism border-t-4 border-primary">
+              {/* Quick Entry / Manual Price Adjuster */}
+              <Card className="glass-morphism border-t-4 border-primary shadow-xl">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                    <TrendingUp size={16} className="text-primary" /> {t.quickAdd}
-                  </CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                      <Edit3 size={16} className="text-primary" /> {t.quickAdd}
+                    </CardTitle>
+                    <span className="text-[9px] font-black text-primary/60 uppercase bg-primary/5 px-3 py-1 rounded-full border border-primary/10">
+                      {t.adjustHint}
+                    </span>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1">
+                    <div className="flex-[2]">
+                      <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 mb-2 block">Item Name</Label>
                       <Input 
                         placeholder={t.productName} 
                         value={quickItemName} 
                         onChange={(e) => setQuickItemName(e.target.value)}
-                        className="bg-muted border-border font-bold h-12 rounded-xl"
+                        className="bg-muted border-border font-black h-12 rounded-xl focus:ring-primary"
                       />
                     </div>
-                    <div className="w-full md:w-32">
+                    <div className="flex-1">
+                      <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 mb-2 block">Manual Price (৳)</Label>
                       <Input 
                         type="number" 
                         placeholder={t.price} 
                         value={quickItemPrice} 
                         onChange={(e) => setQuickItemPrice(e.target.value)}
-                        className="bg-muted border-border font-bold h-12 rounded-xl"
+                        className="bg-muted border-border font-black h-12 rounded-xl focus:ring-primary text-primary"
                       />
                     </div>
-                    <Button onClick={handleQuickAdd} className="bg-primary hover:bg-primary/90 rounded-xl h-12 px-8">
-                      <Plus size={20} />
-                    </Button>
+                    <div className="flex items-end">
+                      <Button onClick={handleQuickAdd} className="bg-primary hover:bg-primary/90 rounded-xl h-12 px-10 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
+                        <Plus size={20} className="mr-2" />
+                        <span className="font-black uppercase tracking-widest text-[10px]">Add to Cart</span>
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -349,7 +369,7 @@ export function SellerPortal() {
                         <Button 
                           key={prod.id} 
                           variant="ghost" 
-                          onClick={() => addToCart(prod)}
+                          onClick={() => handleProductSelect(prod)}
                           className="h-32 flex flex-col items-center justify-center border border-border hover:border-primary hover:bg-primary/5 transition-all rounded-2xl shadow-sm group"
                         >
                           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -362,7 +382,7 @@ export function SellerPortal() {
                       {!products?.length && (
                         <div className="col-span-full py-20 text-center opacity-40 border-2 border-dashed border-border rounded-3xl">
                           <Package className="mx-auto mb-4" size={40} />
-                          <p className="text-[10px] font-black uppercase tracking-widest">Catalog Empty • Use Quick Entry or Add to Inventory</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest">Catalog Empty • Use Quick Entry above</p>
                         </div>
                       )}
                     </div>
@@ -371,7 +391,7 @@ export function SellerPortal() {
               </Card>
             </div>
 
-            <Card className="glass-morphism border-t-4 border-secondary flex flex-col h-full">
+            <Card className="glass-morphism border-t-4 border-secondary flex flex-col h-full shadow-2xl">
               <CardHeader>
                 <CardTitle className="text-lg font-black uppercase tracking-widest flex items-center justify-between">
                   {t.cart}
@@ -383,18 +403,40 @@ export function SellerPortal() {
               <CardContent className="space-y-4 flex-1">
                 <div className="max-h-[450px] overflow-y-auto space-y-3 pr-2 scrollbar-hide">
                   {cart.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-muted/40 p-4 rounded-xl border border-border group animate-in slide-in-from-right-4 duration-300">
-                      <div>
-                        <p className="text-[11px] font-black uppercase leading-none">{item.name}</p>
-                        <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1.5">৳{item.price} x {item.qty}</p>
+                    <div key={idx} className="bg-muted/40 p-4 rounded-xl border border-border group animate-in slide-in-from-right-4 duration-300">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <p className="text-[11px] font-black uppercase leading-none mb-1">{item.name}</p>
+                          <p className="text-[9px] text-muted-foreground font-black uppercase">Line Item #{idx + 1}</p>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          const newCart = [...cart];
+                          newCart.splice(idx, 1);
+                          setCart(newCart);
+                        }} className="text-destructive h-8 w-8 hover:bg-destructive/10 rounded-lg">
+                          <Trash2 size={14} />
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => {
-                        const newCart = [...cart];
-                        newCart.splice(idx, 1);
-                        setCart(newCart);
-                      }} className="text-destructive h-10 w-10 hover:bg-destructive/10 rounded-xl">
-                        <Trash2 size={16} />
-                      </Button>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-muted-foreground ml-1">Price (৳)</Label>
+                          <Input 
+                            type="number"
+                            value={item.price}
+                            onChange={(e) => updateCartItem(idx, { price: parseFloat(e.target.value) || 0 })}
+                            className="h-8 rounded-lg bg-background border-border text-[10px] font-black"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-black uppercase text-muted-foreground ml-1">Quantity</Label>
+                          <Input 
+                            type="number"
+                            value={item.qty}
+                            onChange={(e) => updateCartItem(idx, { qty: parseInt(e.target.value) || 0 })}
+                            className="h-8 rounded-lg bg-background border-border text-[10px] font-black"
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {cart.length === 0 && (
@@ -423,7 +465,7 @@ export function SellerPortal() {
         </TabsContent>
 
         <TabsContent value="expenses">
-          <Card className="glass-morphism max-w-2xl mx-auto border-t-4 border-destructive">
+          <Card className="glass-morphism max-w-2xl mx-auto border-t-4 border-destructive shadow-xl">
             <CardHeader>
               <CardTitle className="text-lg font-black uppercase tracking-widest">{t.addExpense}</CardTitle>
             </CardHeader>
@@ -522,7 +564,7 @@ export function SellerPortal() {
                           variant="ghost" 
                           size="icon" 
                           onClick={() => handleDeleteProduct(p.id)}
-                          className="text-destructive hover:bg-destructive/10 rounded-xl h-10 w-10 border border-transparent hover:border-destructive/20"
+                          className="text-destructive h-10 w-10 border border-transparent hover:border-destructive/20 rounded-xl"
                         >
                           <Trash2 size={16} />
                         </Button>
@@ -548,3 +590,4 @@ export function SellerPortal() {
     </div>
   );
 }
+
