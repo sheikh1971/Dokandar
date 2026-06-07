@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  /* User requested palette mapped to HSL */
+  /* Requested Shop Palette */
   --background: 210 40% 98%; /* #F8FAFC - shopBg */
   --foreground: 222 47% 11%; /* #0F172A - shopText */
   
@@ -13,19 +13,19 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
   
-  --primary: 175 77% 26%; /* #0F766E - shopPrimary */
+  --primary: 175 77% 26%; /* #0F766E - shopPrimary (Teal) */
   --primary-foreground: 210 40% 98%;
   
-  --secondary: 201 96% 32%; /* #0369A1 - shopSecondary */
+  --secondary: 201 96% 32%; /* #0369A1 - shopSecondary (Sky Blue) */
   --secondary-foreground: 210 40% 98%;
   
   --muted: 210 40% 94%;
   --muted-foreground: 215.4 16.3% 46.9%;
   
-  --accent: 201 96% 32%; /* Sky Blue as accent */
+  --accent: 201 96% 32%;
   --accent-foreground: 210 40% 98%;
   
-  --destructive: 0 72% 50%; /* #DC2626 - shopDanger */
+  --destructive: 0 72% 51%; /* #DC2626 - shopDanger */
   --destructive-foreground: 210 40% 98%;
   
   --border: 214.3 31.8% 91.4%;
@@ -34,7 +34,7 @@
   
   --radius: 0.75rem;
 
-  /* Custom HSL for profit (Success) */
+  /* Success Color */
   --success: 142 76% 36%; /* #16A34A - shopSuccess */
 }
 
@@ -43,24 +43,14 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground selection:bg-primary/20;
-    /* Soft, subtle gradients instead of harsh neon */
-    background-image: radial-gradient(circle at 50% -20%, rgba(15, 118, 110, 0.03) 0%, transparent 50%),
-                      radial-gradient(circle at 100% 100%, rgba(3, 105, 161, 0.02) 0%, transparent 40%);
+    @apply bg-background text-foreground antialiased selection:bg-primary/20;
+    background-image: radial-gradient(circle at 50% -20%, rgba(15, 118, 110, 0.03) 0%, transparent 50%);
     background-attachment: fixed;
   }
 }
 
 .glass-morphism {
-  @apply bg-card/80 backdrop-blur-sm border border-border shadow-sm;
-}
-
-.subtle-border-primary {
-  @apply border-primary/10 hover:border-primary/30 transition-colors duration-300;
-}
-
-.subtle-glow-teal {
-  box-shadow: 0 0 15px rgba(15, 118, 110, 0.05);
+  @apply bg-card/80 backdrop-blur-md border border-border shadow-sm;
 }
 
 .font-headline {
@@ -69,4 +59,9 @@
 
 .font-body {
   font-family: 'Montserrat', sans-serif;
+}
+
+/* Custom Success Text Utility */
+.text-success {
+  color: hsl(var(--success));
 }
