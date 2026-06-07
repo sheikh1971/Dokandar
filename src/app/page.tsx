@@ -53,8 +53,10 @@ export default function Home() {
 
     try {
       if (isSignUp) {
+        // REGISTER TO FIREBASE
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        // Provision the role immediately in Firestore as a strict condition
+        
+        // PROVISION ROLE IN FIRESTORE
         const profileData = {
           uid: cred.user.uid,
           email: email,
@@ -69,6 +71,7 @@ export default function Home() {
           description: `Access granted as ${authRole === 'admin' ? 'SUPER ADMIN' : 'SELLER'}.`,
         });
       } else {
+        // LOGIN
         await signInWithEmailAndPassword(auth, email, password);
         toast({
           title: "Authorization Success",
@@ -143,7 +146,7 @@ export default function Home() {
                 <Mail className={`absolute left-4 top-4 text-muted-foreground group-focus-within:${isSignUp ? 'text-secondary' : 'text-primary'} transition-colors`} size={18} />
                 <Input 
                   type="email" 
-                  placeholder="name@shop.com" 
+                  placeholder="admin@gmail.com" 
                   className="pl-12 h-14 rounded-2xl bg-muted/30 border-border font-bold focus:ring-primary focus:border-primary" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
@@ -239,7 +242,7 @@ export default function Home() {
                 {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
               </span>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive hover:bg-destructive/10 h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
               <LogOut size={18} />
             </Button>
           </div>
