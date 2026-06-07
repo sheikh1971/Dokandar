@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { SellerPortal } from "@/components/seller/SellerPortal";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,8 @@ import {
   Building2,
   Users,
   Key,
-  Fingerprint
+  Fingerprint,
+  LockKeyhole
 } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
@@ -77,7 +78,7 @@ export default function Home() {
         await signInWithEmailAndPassword(auth, email, password);
         toast({
           title: "Authorization Success",
-          description: "Credentials verified. Accessing Command Terminal.",
+          description: "Credentials verified. Accessing Terminal.",
         });
       }
     } catch (error: any) {
@@ -108,7 +109,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Syncing Intelligence Node...</p>
+          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Intelligence Link...</p>
         </div>
       </div>
     );
@@ -118,13 +119,12 @@ export default function Home() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-6 relative overflow-hidden">
-        {/* Decorative Background Elements */}
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 rounded-full blur-[120px]" />
 
         <div className={`max-w-md w-full glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 ${isSignUp ? 'border-secondary' : 'border-primary'} shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 transition-all duration-500`}>
           <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-            {isSignUp ? <Key size={120} /> : <ShieldAlert size={120} />}
+            {isSignUp ? <Key size={120} /> : <LockKeyhole size={120} />}
           </div>
           
           <div className="text-center space-y-3 relative z-10">
@@ -136,7 +136,7 @@ export default function Home() {
                 DOKAN<span className={isSignUp ? 'text-secondary' : 'text-primary'}>HISHAB</span>
               </h2>
               <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">
-                {isSignUp ? "Identity Provisioning Required" : "Authentication Mandatory for Entry"}
+                {isSignUp ? "New Identity Provisioning" : "Mandatory Auth Required"}
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export default function Home() {
                 <Mail className={`absolute left-4 top-4 text-muted-foreground group-focus-within:${isSignUp ? 'text-secondary' : 'text-primary'} transition-colors`} size={18} />
                 <Input 
                   type="email" 
-                  placeholder="name@business.com" 
+                  placeholder="admin@gmail.com" 
                   className="pl-12 h-14 rounded-2xl bg-muted/30 border-border font-bold focus:ring-primary focus:border-primary" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
@@ -171,13 +171,12 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Role Selection (Mandatory during Registration) */}
             {isSignUp && (
               <div className="space-y-4 animate-in fade-in slide-in-from-top-2 bg-muted/20 p-5 rounded-2xl border border-border/50">
                  <div className="flex items-center justify-between mb-2">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                       <Fingerprint size={12} className="text-secondary" />
-                      Provisioning Level
+                      Portal Access Level
                     </Label>
                     <div className="flex items-center gap-3">
                       <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'seller' ? 'text-secondary' : 'text-muted-foreground'}`}>Seller</span>
@@ -191,7 +190,7 @@ export default function Home() {
                  </div>
                  <div className={`p-2 rounded-xl border text-center transition-colors duration-300 ${authRole === 'admin' ? 'bg-secondary/10 border-secondary/20' : 'bg-muted/40 border-border'}`}>
                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] ${authRole === 'admin' ? 'text-secondary' : 'text-muted-foreground'}`}>
-                      {authRole === 'admin' ? 'UNRESTRICTED OWNER ACCESS: SUPER ADMIN' : 'STAFF POS PORTAL: SELLER'}
+                      {authRole === 'admin' ? 'SUPER ADMIN: OWNER COMMAND CENTER' : 'STANDARD POS: STAFF TERMINAL'}
                    </p>
                  </div>
               </div>
@@ -213,7 +212,7 @@ export default function Home() {
               onClick={() => setIsSignUp(!isSignUp)}
               className={`text-[9px] font-black ${isSignUp ? 'text-secondary' : 'text-primary'} uppercase tracking-[0.2em] hover:underline`}
             >
-              {isSignUp ? "Already Registered? Authorize" : "New User? Register Mandatory Role"}
+              {isSignUp ? "Already Registered? Authorize" : "New Terminal? Register Role"}
             </button>
             <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">System Architecture: Cloud Native Intelligence</p>
           </div>
@@ -233,12 +232,12 @@ export default function Home() {
             </div>
             <CardTitle className="font-headline text-2xl font-black uppercase tracking-tighter">Identity <span className="text-destructive">Glitched</span></CardTitle>
             <CardDescription className="text-[10px] font-bold uppercase tracking-widest mt-2 border-y border-border py-2">
-              Authenticated session found, but database profile is missing.
+              Unauthorized session detected.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-4">
             <p className="text-[10px] text-muted-foreground uppercase font-bold text-center leading-relaxed">
-              Entry is denied. Your account exists in Auth but has no provisioned role. Please terminate this session and register correctly.
+              Your account is authenticated but lacks a verified role profile in our database. Please terminate this session and register correctly.
             </p>
             <Button onClick={handleLogout} variant="destructive" className="w-full py-7 rounded-2xl font-black uppercase tracking-widest shadow-lg hover:scale-[1.02] transition-all">
               Terminate Corrupt Session

@@ -54,7 +54,7 @@ export function SellerPortal() {
   const [quickItemName, setQuickItemName] = useState("");
   const [quickItemPrice, setQuickItemPrice] = useState("");
 
-  // Product Management State (For Inventory Tab)
+  // Product Management State
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
   const [newProductCategory, setNewProductCategory] = useState("Essentials");
@@ -75,7 +75,6 @@ export function SellerPortal() {
   const [pastEntryAmount, setPastEntryAmount] = useState("");
   const [pastEntryDesc, setPastEntryDesc] = useState("");
 
-  // Fetch Live Inventory
   const productsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "products"), orderBy("name", "asc"));
@@ -83,7 +82,6 @@ export function SellerPortal() {
 
   const { data: products, loading: productsLoading } = useCollection(productsQuery);
 
-  // Fetch Seller's Sales & Expenses for Ledger
   const salesQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, "sales"), where("sellerId", "==", user.uid));
@@ -148,13 +146,11 @@ export function SellerPortal() {
       total: "মোট",
       checkout: "চেকআউট",
       quickAdd: "দ্রুত পণ্য যোগ / মূল্য পরিবর্তন",
-      manageProducts: "পণ্য পরিচালনা",
       performance: "আজকের পারফরম্যান্স",
       history: "লেনদেনের তালিকা",
       edit: "সম্পাদনা",
       delete: "মুছে ফেলুন",
       addMissing: "পুরানো হিসাব যুক্ত করুন",
-      pastEntry: "অতীতের হিসাব দাখিল",
       deployProduct: "পণ্য যুক্ত করুন"
     },
     en: {
@@ -174,23 +170,19 @@ export function SellerPortal() {
       total: "Total",
       checkout: "Checkout",
       quickAdd: "Quick Entry / Manual Price",
-      manageProducts: "Manage Products",
       performance: "Today's Performance",
       history: "Transaction History",
       edit: "Edit Record",
       delete: "Delete",
       addMissing: "Add Missing Entry",
-      pastEntry: "Log Past Entry",
       deployProduct: "Deploy Product"
     }
   }[lang];
 
   const handleProductSelect = (product: any) => {
-    // Populate manual adjustment fields
     setQuickItemName(product.name);
     setQuickItemPrice(product.price.toString());
     
-    // Automatically add to cart
     const newItem = {
       id: `auto-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: product.name,
@@ -221,18 +213,18 @@ export function SellerPortal() {
 
   const handleCheckout = async () => {
     if (!firestore || !user) return;
-    const total = cart.reduce((acc, curr) => acc + curr.price * curr.qty, 0);
+    const total = cart.reduce((a, b) => a + b.price * b.qty, 0);
     const saleData = {
       items: cart,
       total,
       timestamp: serverTimestamp(),
       sellerId: user.uid,
-      sellerName: user.displayName || user.email?.split('@')[0] || "Unknown Seller"
+      sellerName: user.displayName || user.email?.split('@')[0] || "Staff"
     };
 
     addDoc(collection(firestore, "sales"), saleData)
       .then(() => {
-        toast({ title: "Sale Recorded", description: `৳${total.toLocaleString()} added to daily ledger.` });
+        toast({ title: "Sale Recorded", description: `৳${total.toLocaleString()} confirmed.` });
         setCart([]);
       })
       .catch(async () => {
@@ -254,7 +246,7 @@ export function SellerPortal() {
 
     addDoc(collection(firestore, "expenses"), expenseData)
       .then(() => {
-        toast({ title: "Expense Added", description: "Expense record saved successfully." });
+        toast({ title: "Expense Saved", description: "Ledger updated." });
         setExpenseDesc("");
         setExpenseAmount("");
       })
@@ -277,7 +269,7 @@ export function SellerPortal() {
 
     addDoc(collection(firestore, "products"), productData)
       .then(() => {
-        toast({ title: "Product Cataloged", description: `${newProductName} added to shop inventory.` });
+        toast({ title: "Catalog Updated", description: `${newProductName} deployed.` });
         setNewProductName("");
         setNewProductPrice("");
       })
@@ -307,7 +299,7 @@ export function SellerPortal() {
       items: [{ name: pastEntryDesc, price: parseFloat(pastEntryAmount), qty: 1 }],
       timestamp: Timestamp.fromDate(pastEntryDate),
       sellerId: user.uid,
-      sellerName: user.displayName || user.email?.split('@')[0] || "Unknown Seller"
+      sellerName: user.displayName || user.email?.split('@')[0] || "Staff"
     } : {
       amount: parseFloat(pastEntryAmount),
       description: pastEntryDesc,
@@ -318,10 +310,8 @@ export function SellerPortal() {
 
     addDoc(collection(firestore, collectionName), entryData)
       .then(() => {
-        toast({ title: "Past Entry Logged", description: "Ledger updated successfully." });
+        toast({ title: "Audit Success", description: "Record backfilled." });
         setIsPastEntryOpen(false);
-        setPastEntryAmount("");
-        setPastEntryDesc("");
       })
       .catch(async () => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
@@ -334,7 +324,7 @@ export function SellerPortal() {
     if (!firestore) return;
     const collectionName = type === 'sale' ? 'sales' : 'expenses';
     deleteDoc(doc(firestore, collectionName, id))
-      .then(() => toast({ title: "Record Removed" }))
+      .then(() => toast({ title: "Record Purged" }))
       .catch(async () => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
           path: `${collectionName}/${id}`, operation: "delete"
@@ -348,13 +338,12 @@ export function SellerPortal() {
     const ref = doc(firestore, type, editingRecord.id);
     const val = parseFloat(editValue);
     const updates = type === "sales" 
-      ? { total: val, updatedAt: serverTimestamp(), updatedBy: user.displayName || user.email }
-      : { amount: val, updatedAt: serverTimestamp(), updatedBy: user.displayName || user.email };
+      ? { total: val, updatedAt: serverTimestamp(), updatedBy: user.email }
+      : { amount: val, updatedAt: serverTimestamp(), updatedBy: user.email };
 
     updateDoc(ref, updates).then(() => {
-      toast({ title: "Record Updated" });
+      toast({ title: "Audit Trail Updated" });
       setEditingRecord(null);
-      setEditValue("");
     }).catch(async () => {
       errorEmitter.emit("permission-error", new FirestorePermissionError({
         path: `${type}/${editingRecord.id}`, operation: "update", requestResourceData: updates
@@ -364,7 +353,6 @@ export function SellerPortal() {
 
   return (
     <div className="space-y-6">
-      {/* Header & Performance Metrics */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
         <div>
           <h2 className="text-2xl font-black font-headline tracking-tighter uppercase flex items-center gap-3">
@@ -387,12 +375,7 @@ export function SellerPortal() {
             </div>
           </Card>
           
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setLang(lang === "bn" ? "en" : "bn")}
-            className="rounded-2xl font-black text-[10px] uppercase border-border h-12 px-6"
-          >
+          <Button variant="outline" size="sm" onClick={() => setLang(lang === "bn" ? "en" : "bn")} className="rounded-2xl font-black text-[10px] uppercase border-border h-12 px-6">
             {lang === "bn" ? "English" : "বাংলা"}
           </Button>
         </div>
@@ -418,18 +401,16 @@ export function SellerPortal() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <Card className="glass-morphism border-t-4 border-primary">
-                <CardHeader>
-                  <CardTitle className="text-xs font-black uppercase tracking-[0.2em]">{t.quickAdd}</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle className="text-xs font-black uppercase tracking-[0.2em]">{t.quickAdd}</CardTitle></CardHeader>
                 <CardContent>
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-[2]">
                       <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Item Name</Label>
-                      <Input placeholder={t.productName} value={quickItemName} onChange={(e) => setQuickItemName(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl" />
+                      <Input value={quickItemName} onChange={(e) => setQuickItemName(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl" />
                     </div>
                     <div className="flex-1">
                       <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Manual Price (৳)</Label>
-                      <Input type="number" placeholder={t.price} value={quickItemPrice} onChange={(e) => setQuickItemPrice(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl text-primary" />
+                      <Input type="number" value={quickItemPrice} onChange={(e) => setQuickItemPrice(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl text-primary" />
                     </div>
                     <Button onClick={handleQuickAdd} className="bg-primary hover:bg-primary/90 rounded-xl h-12 px-10 self-end font-black uppercase tracking-widest text-[10px]">Add to Cart</Button>
                   </div>
@@ -441,14 +422,9 @@ export function SellerPortal() {
                   {productsLoading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={32} /></div> : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {products?.map((prod: any) => (
-                        <Button 
-                          key={prod.id} 
-                          variant="ghost" 
-                          onClick={() => handleProductSelect(prod)} 
-                          className="h-32 flex flex-col border border-border hover:border-primary hover:bg-primary/5 rounded-2xl shadow-sm group"
-                        >
-                          <Package size={20} className="text-primary mb-2 group-hover:scale-110 transition-transform" />
-                          <span className="text-[10px] font-black uppercase text-center">{prod.name}</span>
+                        <Button key={prod.id} variant="ghost" onClick={() => handleProductSelect(prod)} className="h-32 flex flex-col border border-border hover:border-primary hover:bg-primary/5 rounded-2xl shadow-sm group">
+                          <Package size={20} className="text-primary mb-2" />
+                          <span className="text-[10px] font-black uppercase">{prod.name}</span>
                           <span className="text-[12px] font-black text-primary mt-1">৳{prod.price}</span>
                         </Button>
                       ))}
@@ -459,11 +435,7 @@ export function SellerPortal() {
             </div>
 
             <Card className="glass-morphism border-t-4 border-secondary flex flex-col h-full shadow-2xl">
-              <CardHeader>
-                <CardTitle className="text-lg font-black uppercase tracking-widest flex justify-between">
-                  {t.cart} <span className="text-[10px] bg-secondary/10 text-secondary px-3 py-1 rounded-full">{cart.length} ITEMS</span>
-                </CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg font-black uppercase tracking-widest flex justify-between">{t.cart} <span className="text-[10px] bg-secondary/10 text-secondary px-3 py-1 rounded-full">{cart.length} ITEMS</span></CardTitle></CardHeader>
               <CardContent className="space-y-4 flex-1">
                 <div className="max-h-[450px] overflow-y-auto space-y-3 pr-2 scrollbar-hide">
                   {cart.map((item, idx) => (
@@ -488,15 +460,9 @@ export function SellerPortal() {
                       </div>
                     </div>
                   ))}
-                  {cart.length === 0 && (
-                    <div className="py-20 text-center opacity-20">
-                       <ShoppingCart size={48} className="mx-auto mb-4" />
-                       <p className="text-xs font-black uppercase tracking-widest">Empty Cart</p>
-                    </div>
-                  )}
                 </div>
                 <div className="border-t pt-6 space-y-4">
-                  <div className="flex justify-between text-2xl font-black uppercase tracking-tighter">
+                  <div className="flex justify-between text-2xl font-black tracking-tighter">
                     <span>{t.total}</span><span className="text-primary">৳{cart.reduce((a, b) => a + b.price * b.qty, 0).toLocaleString()}</span>
                   </div>
                   <Button className="w-full bg-primary py-8 rounded-2xl shadow-xl font-black uppercase tracking-widest" disabled={cart.length === 0} onClick={handleCheckout}>{t.checkout}</Button>
@@ -508,37 +474,26 @@ export function SellerPortal() {
 
         <TabsContent value="expenses">
           <Card className="glass-morphism max-w-2xl mx-auto border-t-4 border-destructive">
-            <CardHeader>
-              <CardTitle className="text-lg font-black uppercase tracking-widest">{t.addExpense}</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-lg font-black uppercase tracking-widest">{t.addExpense}</CardTitle></CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.productName} / Description</Label>
-                <Input value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Rent, Electricity, Supplies..." className="bg-muted/30 border-border h-12 rounded-xl font-black" />
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">Description</Label>
+                <Input value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Rent, Supplies..." className="bg-muted/30 border-border h-12 rounded-xl font-black" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.amount}</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Amount</Label>
                   <Input type="number" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} placeholder="0.00" className="bg-muted/30 border-border h-12 rounded-xl font-black text-destructive" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.category}</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Category</Label>
                   <Select value={expenseCat} onValueChange={setExpenseCat}>
-                    <SelectTrigger className="bg-muted border-border h-12 rounded-xl font-black">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Operations">Operations</SelectItem>
-                      <SelectItem value="Supplies">Supplies</SelectItem>
-                      <SelectItem value="Utilities">Utilities</SelectItem>
-                      <SelectItem value="Salaries">Salaries</SelectItem>
-                      <SelectItem value="Rent">Rent</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
+                    <SelectTrigger className="bg-muted border-border h-12 rounded-xl font-black"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="Operations">Operations</SelectItem><SelectItem value="Rent">Rent</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
                   </Select>
                 </div>
               </div>
-              <Button onClick={handleSubmitExpense} className="w-full bg-destructive text-destructive-foreground font-black py-8 rounded-2xl hover:bg-destructive/90 uppercase tracking-widest shadow-lg transition-all active:scale-95">
+              <Button onClick={handleSubmitExpense} className="w-full bg-destructive text-destructive-foreground font-black py-8 rounded-2xl hover:bg-destructive/90 uppercase tracking-widest shadow-lg">
                 <Plus className="mr-2" size={16} /> {t.submit}
               </Button>
             </CardContent>
@@ -548,72 +503,30 @@ export function SellerPortal() {
         <TabsContent value="inventory" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="glass-morphism border-t-4 border-primary">
-              <CardHeader>
-                <CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Add Product</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Add Product</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase tracking-widest">Item Name</Label>
-                  <Input value={newProductName} onChange={(e) => setNewProductName(e.target.value)} placeholder="e.g., Luxury Coffee" className="bg-muted border-border h-12 rounded-xl font-black" />
+                  <Input value={newProductName} onChange={(e) => setNewProductName(e.target.value)} placeholder="New Item" className="bg-muted border-border h-12 rounded-xl font-black" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest">Selling Price (৳)</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest">Price (৳)</Label>
                   <Input type="number" value={newProductPrice} onChange={(e) => setNewProductPrice(e.target.value)} placeholder="0.00" className="bg-muted border-border h-12 rounded-xl font-black text-primary" />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase tracking-widest">Category</Label>
-                  <Select value={newProductCategory} onValueChange={setNewProductCategory}>
-                    <SelectTrigger className="bg-muted border-border h-12 rounded-xl font-black">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Essentials">Essentials</SelectItem>
-                      <SelectItem value="Premium">Premium</SelectItem>
-                      <SelectItem value="Beverage">Beverage</SelectItem>
-                      <SelectItem value="Snacks">Snacks</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleAddProduct} className="w-full bg-primary font-black uppercase tracking-widest h-14 rounded-2xl shadow-xl hover:scale-[1.02] transition-all">
-                  <Plus className="mr-2" size={16} /> {t.deployProduct}
-                </Button>
+                <Button onClick={handleAddProduct} className="w-full bg-primary font-black uppercase tracking-widest h-14 rounded-2xl shadow-xl">Deploy Product</Button>
               </CardContent>
             </Card>
 
             <Card className="lg:col-span-2 glass-morphism">
-              <CardHeader>
-                <CardTitle className="text-sm font-black uppercase tracking-widest">Active Shop Catalog</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-sm font-black uppercase tracking-widest">Active Catalog</CardTitle></CardHeader>
               <CardContent className="p-0">
                 <div className="max-h-[500px] overflow-y-auto">
                   {products?.map((p: any) => (
                     <div key={p.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-[12px] uppercase">
-                          {p.category?.[0] || 'P'}
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-foreground uppercase tracking-tight">{p.name}</p>
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{p.category}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
-                          <p className="text-sm font-black text-primary">৳{p.price}</p>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive hover:bg-destructive/10 rounded-xl h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
-                          <Trash2 size={16} />
-                        </Button>
-                      </div>
+                      <div><p className="text-sm font-black uppercase">{p.name}</p><p className="text-[10px] font-bold text-muted-foreground uppercase">{p.category}</p></div>
+                      <div className="flex items-center gap-6"><p className="text-sm font-black text-primary">৳{p.price}</p><Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive h-10 w-10"><Trash2 size={16} /></Button></div>
                     </div>
                   ))}
-                  {(!products || products.length === 0) && (
-                    <div className="py-20 text-center opacity-20">
-                       <Package size={48} className="mx-auto mb-4" />
-                       <p className="text-xs font-black uppercase tracking-widest">No Products Listed</p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -632,42 +545,22 @@ export function SellerPortal() {
               <CardHeader className="flex flex-row items-center justify-between border-b bg-secondary/5 py-4">
                 <CardTitle className="text-sm font-black uppercase tracking-widest">{t.history}</CardTitle>
                 <Dialog open={isPastEntryOpen} onOpenChange={setIsPastEntryOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="font-black text-[10px] uppercase border-secondary text-secondary hover:bg-secondary/10 h-10 px-5 rounded-xl">
-                      <Plus className="mr-2" size={14} /> {t.addMissing}
-                    </Button>
-                  </DialogTrigger>
+                  <DialogTrigger asChild><Button variant="outline" size="sm" className="font-black text-[10px] uppercase border-secondary text-secondary h-10 px-5 rounded-xl"><Plus className="mr-2" size={14} /> {t.addMissing}</Button></DialogTrigger>
                   <DialogContent className="glass-morphism border-t-4 border-secondary">
                     <DialogHeader><DialogTitle className="text-sm font-black uppercase tracking-[0.2em]">Audit Adjustment Entry</DialogTitle></DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Original Transaction Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-bold h-12 rounded-xl", !pastEntryDate && "text-muted-foreground")}>
-                              <CalendarIcon className="mr-2 h-4 w-4" /> {pastEntryDate ? format(pastEntryDate, "PPP") : <span>Select historical date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={pastEntryDate} onSelect={(d) => d && setPastEntryDate(d)} initialFocus /></PopoverContent>
-                        </Popover>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Original Transaction Date</Label>
+                        <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl"><CalendarIcon className="mr-2 h-4 w-4" /> {pastEntryDate ? format(pastEntryDate, "PPP") : <span>Select date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={pastEntryDate} onSelect={(d) => d && setPastEntryDate(d)} initialFocus /></PopoverContent></Popover>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Type</Label>
-                          <Select value={pastEntryType} onValueChange={(v: any) => setPastEntryType(v)}>
-                            <SelectTrigger className="bg-muted h-12 rounded-xl font-black"><SelectValue /></SelectTrigger>
-                            <SelectContent><SelectItem value="sale">Revenue In</SelectItem><SelectItem value="expense">Expense Out</SelectItem></SelectContent>
-                          </Select>
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground">Type</Label>
+                          <Select value={pastEntryType} onValueChange={(v: any) => setPastEntryType(v)}><SelectTrigger className="bg-muted h-12 rounded-xl font-black"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sale">Revenue In</SelectItem><SelectItem value="expense">Expense Out</SelectItem></SelectContent></Select>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Amount (৳)</Label>
-                          <Input type="number" value={pastEntryAmount} onChange={(e) => setPastEntryAmount(e.target.value)} className="bg-muted h-12 rounded-xl font-black" />
-                        </div>
+                        <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Amount (৳)</Label><Input type="number" value={pastEntryAmount} onChange={(e) => setPastEntryAmount(e.target.value)} className="bg-muted h-12 rounded-xl font-black" /></div>
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description / Record Note</Label>
-                        <Input value={pastEntryDesc} onChange={(e) => setPastEntryDesc(e.target.value)} placeholder="Audit reason or item summary" className="bg-muted h-12 rounded-xl font-black" />
-                      </div>
+                      <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Description</Label><Input value={pastEntryDesc} onChange={(e) => setPastEntryDesc(e.target.value)} className="bg-muted h-12 rounded-xl font-black" /></div>
                     </div>
                     <DialogFooter><Button onClick={handleAddPastEntry} className="w-full bg-secondary py-8 rounded-2xl font-black uppercase tracking-widest shadow-xl">Finalize Historical Adjustment</Button></DialogFooter>
                   </DialogContent>
@@ -680,21 +573,15 @@ export function SellerPortal() {
                     .map((record: any) => (
                       <div key={record.id} className="flex justify-between items-center p-6 border-b border-border/30 hover:bg-muted/30 transition-all">
                         <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${record.type === 'sale' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${record.type === 'sale' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
                             {record.type === 'sale' ? <ShoppingCart size={20} /> : <Banknote size={20} />}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-black uppercase tracking-tight">{record.type === 'sale' ? 'Sales Ledger Entry' : (record.description || record.category)}</p>
-                              {record.updatedAt && (
-                                <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black border border-secondary/20 flex items-center gap-1">
-                                  <Edit3 size={8} /> MODIFIED
-                                </span>
-                              )}
+                              <p className="text-sm font-black uppercase tracking-tight">{record.type === 'sale' ? 'Sales Entry' : record.description}</p>
+                              {record.updatedAt && <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black border border-secondary/20 flex items-center gap-1"><Edit3 size={8} /> MODIFIED</span>}
                             </div>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5">
-                               <CalendarIcon size={10} /> {record.timestamp?.toDate()?.toLocaleString()}
-                            </p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><CalendarIcon size={10} /> {record.timestamp?.toDate()?.toLocaleString()}</p>
                           </div>
                         </div>
                         <div className="text-right space-y-2">
@@ -706,12 +593,6 @@ export function SellerPortal() {
                         </div>
                       </div>
                     ))}
-                  {!stats.recentSales.length && !stats.recentExpenses.length && (
-                    <div className="py-20 text-center opacity-20">
-                       <History size={60} className="mx-auto mb-4" />
-                       <p className="text-xs font-black uppercase tracking-widest">No Operational History</p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -719,21 +600,12 @@ export function SellerPortal() {
         </TabsContent>
       </Tabs>
 
-      {/* Unified Edit Dialog */}
       <Dialog open={!!editingRecord} onOpenChange={() => setEditingRecord(null)}>
         <DialogContent className="glass-morphism border-t-4 border-secondary">
           <DialogHeader><DialogTitle className="text-sm font-black uppercase tracking-widest">Adjust Verified Entry</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground">New Rectified Amount (৳)</Label>
-              <Input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} className="bg-muted font-black h-12 rounded-xl text-secondary" />
-            </div>
-            <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-xl flex gap-3">
-               <AlertCircle className="text-secondary shrink-0" size={16} />
-               <p className="text-[9px] text-muted-foreground font-bold uppercase leading-relaxed">
-                  System Audit: All adjustments are recorded. Your identity will be permanently associated with this rectification in the command log.
-               </p>
-            </div>
+            <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">New Rectified Amount (৳)</Label><Input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} className="bg-muted font-black h-12 rounded-xl text-secondary" /></div>
+            <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-xl flex gap-3"><AlertCircle className="text-secondary shrink-0" size={16} /><p className="text-[9px] text-muted-foreground font-bold uppercase leading-relaxed">Audit Log: All adjustments are recorded and linked to your identity.</p></div>
           </div>
           <DialogFooter><Button onClick={handleUpdateRecord} className="w-full bg-secondary py-8 rounded-2xl font-black uppercase tracking-widest shadow-xl">Commit Rectification</Button></DialogFooter>
         </DialogContent>
@@ -744,12 +616,9 @@ export function SellerPortal() {
 
 function LedgerStatCard({ label, value, icon, color }: any) {
   return (
-    <Card className="glass-morphism border-none shadow-lg group hover:scale-[1.02] transition-all">
+    <Card className="glass-morphism border-none shadow-lg group">
       <CardContent className="p-5 flex items-center justify-between">
-        <div>
-          <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{label}</p>
-          <p className={cn("text-xl font-black tracking-tighter", color === 'primary' ? 'text-primary' : color === 'destructive' ? 'text-destructive' : 'text-secondary')}>৳{value.toLocaleString()}</p>
-        </div>
+        <div><p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{label}</p><p className={cn("text-xl font-black tracking-tighter", color === 'primary' ? 'text-primary' : color === 'destructive' ? 'text-destructive' : 'text-secondary')}>৳{value.toLocaleString()}</p></div>
         <div className={cn("p-2.5 rounded-2xl bg-muted border border-border group-hover:rotate-12 transition-transform", color === 'primary' ? 'text-primary' : color === 'destructive' ? 'text-destructive' : 'text-secondary')}>{icon}</div>
       </CardContent>
     </Card>
