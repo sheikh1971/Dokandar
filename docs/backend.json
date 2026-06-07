@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserProfile": {
@@ -53,15 +52,15 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Stores user roles and profile details."
+      "description": "Stores user roles and profile details. Users can read and write their own profile."
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Global collection of sales transactions."
+      "description": "Global collection of sales transactions. Accessible by sellers for creation and owners for analysis."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Global collection of business expenses."
+      "description": "Global collection of business expenses. Accessible by sellers for recording and owners for review."
     }
   }
 }

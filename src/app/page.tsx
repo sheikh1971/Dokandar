@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { SellerInterface } from "@/components/SellerInterface";
 import { OwnerDashboard } from "@/components/OwnerDashboard";
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,12 @@ export default function Home() {
     }
   };
 
-  // Track profile role
-  const userProfileQuery = user ? doc(firestore!, "users", user.uid) : null;
+  // Memoize user profile query to prevent infinite render loops
+  const userProfileQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user]);
+
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
   const [view, setView] = useState<"seller" | "owner">("seller");
@@ -69,8 +73,6 @@ export default function Home() {
       }, { merge: true });
 
     } catch (error: any) {
-      console.error("Login Error:", error);
-      // Catching both code and message variants
       if (error.code === "auth/unauthorized-domain" || (error.message && error.message.includes("unauthorized-domain"))) {
         setAuthError("unauthorized-domain");
       } else {
