@@ -9,9 +9,8 @@ import {
   Activity, 
   AlertTriangle, 
   BrainCircuit, 
-  RefreshCw,
-  LayoutGrid,
-  FileText
+  FileText,
+  LayoutGrid
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -62,11 +61,11 @@ export function OwnerDashboard() {
           <p className="text-muted-foreground text-sm font-medium">Real-time financial overview & insights.</p>
         </div>
         <div className="flex gap-2">
-           <Button variant="outline" className="border-border text-foreground hover:bg-muted/50">
+           <Button variant="outline" className="border-border text-foreground hover:bg-muted shadow-sm">
               <FileText className="mr-2" size={16} /> Export Report
            </Button>
            <Button 
-            className="bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+            className="bg-primary text-primary-foreground font-semibold shadow-md hover:bg-primary/90 transition-all"
             onClick={handleGenerateAI}
             disabled={isAiLoading}
            >
@@ -91,7 +90,7 @@ export function OwnerDashboard() {
           value="৳18,200" 
           change="+2.4%" 
           trend="down" 
-          color="accent" 
+          color="destructive" 
           icon={<TrendingDown size={20} />} 
         />
         <StatCard 
@@ -99,7 +98,7 @@ export function OwnerDashboard() {
           value="৳24,300" 
           change="+18.1%" 
           trend="up" 
-          color="primary" 
+          color="success" 
           icon={<TrendingUp size={20} />} 
         />
         <StatCard 
@@ -123,25 +122,25 @@ export function OwnerDashboard() {
               <AreaChart data={MOCK_DATA}>
                 <defs>
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `৳${value}`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `৳${value}`} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px' }}
-                  itemStyle={{ color: '#10b981' }}
+                  contentStyle={{ backgroundColor: 'white', borderColor: 'hsl(var(--border))', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  itemStyle={{ color: 'hsl(var(--primary))' }}
                 />
-                <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
+                <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
         {/* AI Insight Box */}
-        <Card className="glass-morphism border-primary/10 subtle-glow-emerald">
+        <Card className="glass-morphism border-primary/10">
           <CardHeader>
             <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
               <BrainCircuit size={18} /> PROFIT ANALYTICS
@@ -150,14 +149,14 @@ export function OwnerDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {aiSummary ? (
-              <div className="text-sm leading-relaxed text-slate-300 font-medium animate-in fade-in slide-in-from-bottom-2">
+              <div className="text-sm leading-relaxed text-foreground/80 font-medium animate-in fade-in slide-in-from-bottom-2">
                 {aiSummary.split('\n').map((line, i) => (
                   <p key={i} className="mb-2">{line}</p>
                 ))}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-[200px] text-center space-y-4">
-                <BrainCircuit className="text-slate-700 w-12 h-12" />
+                <BrainCircuit className="text-muted-foreground/30 w-12 h-12" />
                 <p className="text-xs text-muted-foreground max-w-[180px]">Run AI Insights to generate your weekly performance report.</p>
               </div>
             )}
@@ -165,7 +164,6 @@ export function OwnerDashboard() {
         </Card>
       </div>
 
-      {/* Fraud Detection & Inventory Tracking */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="glass-morphism">
           <CardHeader>
@@ -179,9 +177,9 @@ export function OwnerDashboard() {
               { date: "May 22", desc: "Unexpected Return Entry", amt: "৳500", type: "high" },
               { date: "May 20", desc: "Drawer Void Exception", amt: "৳0", type: "med" },
             ].map((log, i) => (
-              <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors">
+              <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-muted/20 border border-border hover:bg-muted/40 transition-colors">
                 <div>
-                  <p className="text-sm font-semibold text-slate-200">{log.desc}</p>
+                  <p className="text-sm font-semibold text-foreground">{log.desc}</p>
                   <p className="text-[10px] text-muted-foreground font-medium uppercase">{log.date}</p>
                 </div>
                 <span className={`text-sm font-bold ${log.amt.startsWith('-') ? 'text-destructive' : 'text-primary'}`}>
@@ -199,10 +197,10 @@ export function OwnerDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-             <VelocityItem label="Essential Oils" value={85} color="bg-primary" />
-             <VelocityItem label="Packaged Grain" value={42} color="bg-accent" />
-             <VelocityItem label="Cosmetics" value={18} color="bg-slate-500" />
-             <VelocityItem label="Cleaning Supplies" value={64} color="bg-primary" />
+             <VelocityItem label="Essential Oils" value={85} />
+             <VelocityItem label="Packaged Grain" value={42} />
+             <VelocityItem label="Cosmetics" value={18} />
+             <VelocityItem label="Cleaning Supplies" value={64} />
           </CardContent>
         </Card>
       </div>
@@ -210,17 +208,17 @@ export function OwnerDashboard() {
   );
 }
 
-function StatCard({ title, value, change, trend, color, icon }: any) {
+function StatCard({ title, value, change, trend, icon }: any) {
   const getTrendColor = () => {
     if (trend === 'up') return 'text-primary bg-primary/10';
     if (trend === 'down') return 'text-destructive bg-destructive/10';
-    return 'text-amber-500 bg-amber-500/10';
+    return 'text-amber-600 bg-amber-50/50';
   };
 
   return (
-    <Card className={`glass-morphism p-5 transition-transform hover:translate-y-[-2px]`}>
+    <Card className="glass-morphism p-5 transition-transform hover:translate-y-[-2px] shadow-sm">
       <div className="flex justify-between items-start">
-        <div className="bg-white/5 p-2.5 rounded-xl text-primary">{icon}</div>
+        <div className="bg-muted p-2.5 rounded-xl text-primary shadow-inner">{icon}</div>
         <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${getTrendColor()}`}>
           {change}
         </div>
@@ -233,14 +231,14 @@ function StatCard({ title, value, change, trend, color, icon }: any) {
   );
 }
 
-function VelocityItem({ label, value, color }: any) {
+function VelocityItem({ label, value }: any) {
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-xs font-semibold">
-        <span className="text-slate-300">{label}</span>
+        <span className="text-foreground/80">{label}</span>
         <span className="text-muted-foreground">{value}% turnover</span>
       </div>
-      <Progress value={value} className={`h-1.5 bg-slate-800/50 ${color}`} />
+      <Progress value={value} className="h-1.5 bg-muted" />
     </div>
   );
 }

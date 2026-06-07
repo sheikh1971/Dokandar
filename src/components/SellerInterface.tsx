@@ -72,21 +72,21 @@ export function SellerInterface() {
           variant="outline" 
           size="sm" 
           onClick={() => setLang(lang === "bn" ? "en" : "bn")}
-          className="border-border text-foreground hover:bg-muted/50"
+          className="border-border text-foreground hover:bg-muted"
         >
           {lang === "bn" ? "English" : "বাংলা"}
         </Button>
       </div>
 
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-muted/30 border border-border p-1 mb-8">
-          <TabsTrigger value="sales" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs">
+        <TabsList className="grid w-full grid-cols-3 bg-muted border border-border p-1 mb-8">
+          <TabsTrigger value="sales" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs transition-all">
             <ShoppingCart className="mr-2" size={14} /> {t.sales}
           </TabsTrigger>
-          <TabsTrigger value="expenses" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs">
+          <TabsTrigger value="expenses" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs transition-all">
             <Banknote className="mr-2" size={14} /> {t.expenses}
           </TabsTrigger>
-          <TabsTrigger value="inventory" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs">
+          <TabsTrigger value="inventory" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs transition-all">
             <Package className="mr-2" size={14} /> {t.inventory}
           </TabsTrigger>
         </TabsList>
@@ -106,7 +106,7 @@ export function SellerInterface() {
                       key={i} 
                       variant="ghost" 
                       onClick={addToCart}
-                      className="h-28 flex flex-col items-center justify-center border border-white/5 hover:border-primary/50 hover:bg-primary/5 transition-all rounded-xl"
+                      className="h-28 flex flex-col items-center justify-center border border-border hover:border-primary/50 hover:bg-primary/5 transition-all rounded-xl shadow-sm"
                     >
                       <Package size={24} className="mb-3 text-primary/60" />
                       <span className="text-xs font-semibold">Product {i}</span>
@@ -117,7 +117,7 @@ export function SellerInterface() {
               </CardContent>
             </Card>
 
-            <Card className="glass-morphism border-white/5">
+            <Card className="glass-morphism">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold text-foreground flex items-center justify-between">
                   {t.cart}
@@ -125,9 +125,9 @@ export function SellerInterface() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2">
                   {cart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center bg-white/[0.03] p-3 rounded-lg border border-white/5">
+                    <div key={item.id} className="flex justify-between items-center bg-muted/40 p-3 rounded-lg border border-border">
                       <div>
                         <p className="text-sm font-semibold">{item.name}</p>
                         <p className="text-xs text-muted-foreground font-medium">৳{item.price} x {item.qty}</p>
@@ -149,7 +149,7 @@ export function SellerInterface() {
                     <span className="text-primary">৳{cart.reduce((acc, curr) => acc + curr.price * curr.qty, 0)}</span>
                   </div>
                   <Button 
-                    className="w-full bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/10 hover:scale-[1.02] transition-transform" 
+                    className="w-full bg-primary text-primary-foreground font-bold shadow-md hover:scale-[1.01] transition-transform" 
                     disabled={cart.length === 0}
                     onClick={handleCheckout}
                   >
@@ -169,19 +169,19 @@ export function SellerInterface() {
             <CardContent className="space-y-5">
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.productName} / Description</Label>
-                <Input placeholder="Rent, Electricity, Supplies..." className="bg-white/5 border-border focus:border-primary/50" />
+                <Input placeholder="Rent, Electricity, Supplies..." className="bg-muted/30 border-border focus:border-primary/50" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.amount}</Label>
-                  <Input type="number" placeholder="0.00" className="bg-white/5 border-border focus:border-primary/50" />
+                  <Input type="number" placeholder="0.00" className="bg-muted/30 border-border focus:border-primary/50" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.category}</Label>
-                  <Input placeholder="Operations..." className="bg-white/5 border-border focus:border-primary/50" />
+                  <Input placeholder="Operations..." className="bg-muted/30 border-border focus:border-primary/50" />
                 </div>
               </div>
-              <Button className="w-full bg-primary text-primary-foreground font-bold py-6">
+              <Button className="w-full bg-primary text-primary-foreground font-bold py-6 hover:bg-primary/90">
                 <Plus className="mr-2" size={16} /> {t.submit}
               </Button>
             </CardContent>
@@ -196,10 +196,10 @@ export function SellerInterface() {
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3, 4, 5, 6].map(i => (
-                  <Card key={i} className="glass-morphism border-white/5 hover:border-primary/30 transition-all cursor-default group">
+                  <Card key={i} className="glass-morphism border-border hover:border-primary/30 transition-all cursor-default group">
                     <CardContent className="p-5 flex justify-between items-center">
                       <div>
-                        <h4 className="font-bold text-slate-200 group-hover:text-primary transition-colors">Product Item #{i}</h4>
+                        <h4 className="font-bold text-foreground group-hover:text-primary transition-colors">Product Item #{i}</h4>
                         <p className="text-xs text-muted-foreground font-medium">Category: Essentials</p>
                       </div>
                       <div className="text-right">

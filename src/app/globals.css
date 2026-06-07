@@ -3,26 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --background: 222 47% 6%;
-  --foreground: 210 40% 98%;
-  --card: 222 47% 8%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222 47% 8%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 142 71% 45%; /* Emerald Green */
-  --primary-foreground: 144 33% 97%;
-  --secondary: 217 32% 17%; /* Muted Navy */
+  /* User requested palette mapped to HSL */
+  --background: 210 40% 98%; /* #F8FAFC - shopBg */
+  --foreground: 222 47% 11%; /* #0F172A - shopText */
+  
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  
+  --primary: 175 77% 26%; /* #0F766E - shopPrimary */
+  --primary-foreground: 210 40% 98%;
+  
+  --secondary: 201 96% 32%; /* #0369A1 - shopSecondary */
   --secondary-foreground: 210 40% 98%;
-  --muted: 217 32% 17%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 199 89% 48%; /* Sky Blue */
+  
+  --muted: 210 40% 94%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  
+  --accent: 201 96% 32%; /* Sky Blue as accent */
   --accent-foreground: 210 40% 98%;
-  --destructive: 0 84.2% 60.2%;
+  
+  --destructive: 0 72% 50%; /* #DC2626 - shopDanger */
   --destructive-foreground: 210 40% 98%;
-  --border: 217 32% 17%;
-  --input: 217 32% 17%;
-  --ring: 142 71% 45%;
-  --radius: 0.5rem;
+  
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 175 77% 26%;
+  
+  --radius: 0.75rem;
+
+  /* Custom HSL for profit (Success) */
+  --success: 142 76% 36%; /* #16A34A - shopSuccess */
 }
 
 @layer base {
@@ -30,27 +43,24 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground selection:bg-primary/30;
-    background-image: radial-gradient(circle at 50% -20%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
-                      radial-gradient(circle at 0% 100%, rgba(14, 165, 233, 0.05) 0%, transparent 40%);
+    @apply bg-background text-foreground selection:bg-primary/20;
+    /* Soft, subtle gradients instead of harsh neon */
+    background-image: radial-gradient(circle at 50% -20%, rgba(15, 118, 110, 0.03) 0%, transparent 50%),
+                      radial-gradient(circle at 100% 100%, rgba(3, 105, 161, 0.02) 0%, transparent 40%);
     background-attachment: fixed;
   }
 }
 
 .glass-morphism {
-  @apply bg-card/60 backdrop-blur-md border border-white/5;
+  @apply bg-card/80 backdrop-blur-sm border border-border shadow-sm;
 }
 
 .subtle-border-primary {
-  @apply border-primary/20 hover:border-primary/40 transition-colors duration-300;
+  @apply border-primary/10 hover:border-primary/30 transition-colors duration-300;
 }
 
-.subtle-glow-emerald {
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
-}
-
-.subtle-glow-blue {
-  box-shadow: 0 0 20px rgba(14, 165, 233, 0.1);
+.subtle-glow-teal {
+  box-shadow: 0 0 15px rgba(15, 118, 110, 0.05);
 }
 
 .font-headline {
