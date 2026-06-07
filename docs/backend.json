@@ -71,7 +71,7 @@
     },
     "/products/{productId}": {
       "schema": "Product",
-      "description": "Shop inventory. Anyone can read. Only admins can write."
+      "description": "Shop inventory. Anyone can read. Sellers and Admins can write."
     },
     "/sales/{saleId}": {
       "schema": "Sale",
