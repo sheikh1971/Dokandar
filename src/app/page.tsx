@@ -57,7 +57,7 @@ export default function Home() {
 
   const [view, setView] = useState<"seller" | "owner">("seller");
 
-  // Sync view with role from Firestore
+  // Sync view with role from Firestore Profile
   useEffect(() => {
     if (profile?.role === "owner") {
       setView("owner");
@@ -74,8 +74,8 @@ export default function Home() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
-        title: "Welcome",
-        description: `Logged in successfully`,
+        title: "Welcome Back",
+        description: `Login successful. Initializing system...`,
       });
     } catch (error: any) {
       if (error.code === "auth/unauthorized-domain") {
@@ -83,8 +83,8 @@ export default function Home() {
       } else {
         toast({
           variant: "destructive",
-          title: "Authentication Error",
-          description: "Invalid credentials. Access is restricted to accounts created by the Admin."
+          title: "Access Denied",
+          description: "Invalid credentials. Accounts must be set up in the Firebase console."
         });
       }
     } finally {
@@ -109,7 +109,7 @@ export default function Home() {
         toast({
           variant: "destructive",
           title: "Popup Blocked",
-          description: "Please allow popups for this site to sign in with Google.",
+          description: "Please allow popups for this site.",
         });
       } else {
         toast({
@@ -132,7 +132,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Zap className="animate-pulse text-primary" size={48} />
-          <p className="text-muted-foreground font-medium">Synchronizing Portal...</p>
+          <p className="text-muted-foreground font-medium">Verifying Credentials...</p>
         </div>
       </div>
     );
@@ -163,7 +163,7 @@ export default function Home() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="font-bold">Unauthorized Domain</AlertTitle>
                 <AlertDescription className="text-xs space-y-3">
-                  <p>Firebase is blocking this login. Add your domain to authorized domains in Firebase Console.</p>
+                  <p>Domain verification failed. Please add this domain to Firebase Console.</p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-destructive/10 p-2 rounded font-mono text-[10px] break-all border border-destructive/20">
                       {hostname}
@@ -188,24 +188,24 @@ export default function Home() {
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                 </svg>
-                Continue with Google
+                Sign In with Google
               </Button>
 
               <div className="flex items-center gap-4 py-2">
                 <Separator className="flex-1" />
-                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">or sign in with password</span>
+                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">or email & password</span>
                 <Separator className="flex-1" />
               </div>
 
               <form onSubmit={handleEmailAuth} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email Address</Label>
+                  <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">User Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 text-muted-foreground" size={16} />
                     <Input 
                       id="email" 
                       type="email" 
-                      placeholder="seller@shop.com" 
+                      placeholder="seller@dokan.com" 
                       className="pl-10 h-12 rounded-xl" 
                       value={email} 
                       onChange={(e) => setEmail(e.target.value)} 
@@ -229,10 +229,10 @@ export default function Home() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full py-7 font-bold rounded-2xl text-md shadow-md hover:scale-[1.01] transition-all">
-                  Sign In to System
+                  Login to Portal
                 </Button>
                 <p className="text-center text-[9px] text-muted-foreground mt-4 italic leading-relaxed">
-                  Accounts must be authorized in the Firebase backend by the Admin.
+                  Role assignments are managed strictly via the Firebase backend.
                 </p>
               </form>
             </div>
@@ -285,7 +285,9 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <div className="hidden md:flex flex-col items-end">
               <span className="text-xs font-bold leading-none">{user.displayName || user.email}</span>
-              <span className="text-[10px] text-primary uppercase font-bold mt-0.5 tracking-widest">{profile?.role === 'owner' ? 'Admin' : 'Seller'}</span>
+              <span className="text-[10px] text-primary uppercase font-bold mt-0.5 tracking-widest">
+                {profile?.role === 'owner' ? 'Owner Account' : 'Seller Mode'}
+              </span>
             </div>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-destructive hover:bg-destructive/10">
               <LogOut size={18} />

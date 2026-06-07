@@ -3,19 +3,19 @@
   "entities": {
     "UserProfile": {
       "title": "User Profile",
-      "description": "Information about the user and their assigned role.",
+      "description": "User account information and role mapping.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string", "description": "The unique ID of the user." },
-        "email": { "type": "string", "format": "email", "description": "The email address of the user." },
-        "role": { "type": "string", "enum": ["owner", "seller"], "description": "The role of the user, either owner (admin) or seller (staff)." },
-        "displayName": { "type": "string", "description": "The display name of the user." }
+        "uid": { "type": "string", "description": "User ID." },
+        "email": { "type": "string", "format": "email", "description": "Registered email." },
+        "role": { "type": "string", "enum": ["owner", "seller"], "description": "The assigned role. If missing, defaults to seller." },
+        "displayName": { "type": "string", "description": "Full name." }
       },
-      "required": ["uid", "email", "role"]
+      "required": ["uid", "email"]
     },
     "Sale": {
       "title": "Sale Record",
-      "description": "A record of a transaction made by a seller.",
+      "description": "Transaction details.",
       "type": "object",
       "properties": {
         "timestamp": { "type": "string", "format": "date-time" },
@@ -37,7 +37,7 @@
     },
     "Expense": {
       "title": "Expense Record",
-      "description": "A record of business costs.",
+      "description": "Business costs.",
       "type": "object",
       "properties": {
         "timestamp": { "type": "string", "format": "date-time" },
@@ -54,15 +54,15 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "User profile document. Only the user with a UID matching the document ID can read their own profile. This document dictates if they see the Owner or Seller view."
+      "description": "User profile document. A user can read their own profile. Only users with the 'owner' role in their own profile document can read other users' profiles."
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Sales records. Any authenticated user can create a sale. Only users whose UserProfile document has role 'owner' can read the full collection of sales."
+      "description": "Sales records. Any authenticated user can create a sale. Only users whose profile document has role 'owner' can read all sales."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Expense records. Any authenticated user can create an expense record. Only users whose UserProfile document has role 'owner' can read the full collection of expenses."
+      "description": "Expense records. Any authenticated user can create an expense. Only users whose profile document has role 'owner' can read all expenses."
     }
   }
 }
