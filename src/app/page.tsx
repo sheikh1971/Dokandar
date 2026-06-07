@@ -6,10 +6,17 @@ import { SellerPortal } from "@/components/seller/SellerPortal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, User as UserIcon, LogIn } from "lucide-react";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, User as UserIcon, LogIn, ShieldCheck } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
-import { signOut, signInWithEmailAndPassword } from "firebase/auth";
-import { doc } from "firebase/firestore";
+import { signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
@@ -21,6 +28,8 @@ export default function Home() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [authRole, setAuthRole] = useState<"admin" | "seller">("seller");
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user) return null;
@@ -29,22 +38,36 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !email || !password) return;
+    if (!auth || !firestore || !email || !password) return;
     setIsAuthenticating(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: "Authorization Success",
-        description: "Credentials verified. Accessing Command Center.",
-      });
+      if (isSignUp) {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(firestore, "users", cred.user.uid), {
+          uid: cred.user.uid,
+          email: email,
+          role: authRole,
+          displayName: email.split('@')[0]
+        });
+        toast({
+          title: "Identity Provisioned",
+          description: `Access granted as ${authRole.toUpperCase()}.`,
+        });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+        toast({
+          title: "Authorization Success",
+          description: "Credentials verified. Accessing Terminal.",
+        });
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Access Denied",
-        description: "Invalid credentials or unauthorized attempt.",
+        title: "Security Violation",
+        description: error.message || "Invalid credentials or unauthorized attempt.",
       });
     } finally {
       setIsAuthenticating(false);
@@ -67,7 +90,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Initializing Smart Ledger...</p>
+          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Syncing Smart Node...</p>
         </div>
       </div>
     );
@@ -88,18 +111,18 @@ export default function Home() {
             </div>
             <div className="space-y-1">
               <h2 className="font-headline text-3xl font-black uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h2>
-              <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Secure Business Intelligence Terminal</p>
+              <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Smart Business Entry Terminal</p>
             </div>
           </div>
 
-          <form onSubmit={handleEmailAuth} className="space-y-5 relative z-10">
+          <form onSubmit={handleAuth} className="space-y-5 relative z-10">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identity (Email)</Label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                 <Input 
                   type="email" 
-                  placeholder="admin@shop.com" 
+                  placeholder="name@shop.com" 
                   className="pl-12 h-14 rounded-2xl bg-muted/30 border-border font-bold focus:ring-primary focus:border-primary" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
@@ -121,13 +144,35 @@ export default function Home() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest" disabled={isAuthenticating}>
-              {isAuthenticating ? <Loader2 className="animate-spin" /> : "Authorize Entry"}
-            </Button>
+
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Assigned Operational Role</Label>
+              <Select value={authRole} onValueChange={(v: any) => setAuthRole(v)}>
+                <SelectTrigger className="h-14 rounded-2xl bg-muted/30 border-border font-bold focus:ring-primary">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-border">
+                  <SelectItem value="seller" className="font-black text-[10px] uppercase tracking-widest">Seller / Staff Portal</SelectItem>
+                  <SelectItem value="admin" className="font-black text-[10px] uppercase tracking-widest text-primary">Super Admin / Owner</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="pt-2">
+              <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest" disabled={isAuthenticating}>
+                {isAuthenticating ? <Loader2 className="animate-spin" /> : (isSignUp ? "Provision Identity" : "Authorize Entry")}
+              </Button>
+            </div>
           </form>
 
-          <div className="pt-4 text-center">
-            <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">System Architecture: Cloud Native Intelligence</p>
+          <div className="pt-4 text-center space-y-4">
+            <button 
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-[9px] font-black text-primary uppercase tracking-[0.2em] hover:underline"
+            >
+              {isSignUp ? "Switch to Secure Login" : "New Terminal? Register Role"}
+            </button>
+            <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block">System Node: SECURE-LEDGER-V2</p>
           </div>
         </div>
       </div>
