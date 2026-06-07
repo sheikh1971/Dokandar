@@ -7,7 +7,7 @@ import { OwnerDashboard } from "@/components/OwnerDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2 } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, UserCheck } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -33,7 +33,6 @@ export default function Home() {
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
   // Determine view based on role
-  // Default to 'seller' if no profile is found or if role is 'seller'
   const [view, setView] = useState<"seller" | "owner">("seller");
 
   useEffect(() => {
@@ -53,13 +52,13 @@ export default function Home() {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Access Granted",
-        description: "Welcome back to DokanHishab.",
+        description: "Credentials verified. System active.",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid credentials. Please verify your email and password.",
+        title: "Security Alert",
+        description: "Invalid credentials detected.",
       });
     } finally {
       setIsAuthenticating(false);
@@ -73,13 +72,13 @@ export default function Home() {
     try {
       await signInWithPopup(auth, provider);
       toast({
-        title: "Signed In",
-        description: "Google Authentication successful.",
+        title: "Auth Success",
+        description: "Google identity verified.",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Google Sign-In Error",
+        title: "Connection Failed",
         description: error.message,
       });
     } finally {
@@ -91,19 +90,18 @@ export default function Home() {
     if (auth) {
       signOut(auth);
       toast({
-        title: "Signed Out",
-        description: "You have been successfully logged out.",
+        title: "Session Terminated",
+        description: "You have been logged out securely.",
       });
     }
   };
 
-  // Show loading state during auth or profile fetching
   if (authLoading || (user && profileLoading) || isAuthenticating) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-medium animate-pulse uppercase tracking-widest text-xs">Identifying Role...</p>
+          <p className="text-muted-foreground font-bold animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Clearance...</p>
         </div>
       </div>
     );
@@ -113,28 +111,28 @@ export default function Home() {
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-        <div className="max-w-md w-full glass-morphism p-8 rounded-3xl space-y-8 border-t-4 border-primary">
+        <div className="max-w-md w-full glass-morphism p-8 rounded-3xl space-y-8 border-t-4 border-primary shadow-2xl">
           <div className="text-center space-y-3">
             <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform">
               <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
             </div>
             <div className="space-y-1">
               <h1 className="font-headline text-3xl font-bold uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h1>
-              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Business Intelligence & POS</p>
+              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest border-y border-border py-1 inline-block px-4">Core Intelligence System</p>
             </div>
           </div>
 
           <div className="space-y-6">
             <form onSubmit={handleEmailAuth} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Account Email</Label>
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Access Identity</Label>
                 <div className="relative group">
-                  <Mail className="absolute left-3 top-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                  <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                   <Input 
                     id="email" 
                     type="email" 
                     placeholder="name@dokan.com" 
-                    className="pl-10 h-14 rounded-xl bg-muted/30 border-border focus:ring-primary focus:border-primary" 
+                    className="pl-12 h-14 rounded-xl bg-muted/30 border-border focus:ring-primary focus:border-primary font-bold" 
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
                     required 
@@ -142,35 +140,35 @@ export default function Home() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Password</Label>
+                <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Secure Key</Label>
                 <div className="relative group">
-                  <Lock className="absolute left-3 top-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                  <Lock className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                   <Input 
                     id="password" 
                     type="password" 
                     placeholder="••••••••" 
-                    className="pl-10 h-14 rounded-xl bg-muted/30 border-border focus:ring-primary focus:border-primary" 
+                    className="pl-12 h-14 rounded-xl bg-muted/30 border-border focus:ring-primary focus:border-primary font-bold" 
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
                     required 
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full py-7 font-bold rounded-2xl text-lg shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90">
-                Log In to Portal
+              <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest">
+                Authorize Login
               </Button>
             </form>
 
             <div className="flex items-center gap-4 py-2">
               <Separator className="flex-1" />
-              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest px-2">OR</span>
+              <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest px-2">OR</span>
               <Separator className="flex-1" />
             </div>
 
             <Button 
               onClick={handleGoogleAuth} 
               variant="outline" 
-              className="w-full py-7 flex items-center justify-center gap-3 border-border hover:bg-muted font-bold rounded-2xl transition-all shadow-sm"
+              className="w-full py-8 flex items-center justify-center gap-3 border-border hover:bg-muted font-bold rounded-2xl transition-all shadow-sm uppercase tracking-tighter"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -178,12 +176,14 @@ export default function Home() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
-              Sign In with Google
+              Google Verification
             </Button>
 
-            <p className="text-center text-[9px] text-muted-foreground mt-4 italic leading-relaxed uppercase tracking-tighter">
-              Account roles are assigned manually in the backend by the administrator.
-            </p>
+            <div className="bg-muted/50 p-4 rounded-xl border border-border">
+              <p className="text-center text-[9px] text-muted-foreground leading-relaxed uppercase font-black tracking-widest">
+                Protected Portal. Access restricted to authorized personnel. Roles managed via core database.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -210,18 +210,18 @@ export default function Home() {
                 variant={view === "seller" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setView("seller")}
-                className={`rounded-lg font-bold text-xs ${
+                className={`rounded-lg font-black text-[10px] tracking-widest px-4 h-9 ${
                   view === "seller" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                 }`}
               >
                 <ShoppingBag className="mr-2" size={14} />
-                SELLER
+                POS
               </Button>
               <Button
                 variant={view === "owner" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setView("owner")}
-                className={`rounded-lg font-bold text-xs ${
+                className={`rounded-lg font-black text-[10px] tracking-widest px-4 h-9 ${
                   view === "owner" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground"
                 }`}
               >
@@ -231,15 +231,15 @@ export default function Home() {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 pl-4 border-l border-border">
             <div className="hidden md:flex flex-col items-end">
-              <span className="text-xs font-bold leading-none">{profile?.displayName || user.displayName || user.email}</span>
-              <span className="text-[10px] text-primary uppercase font-extrabold mt-0.5 tracking-widest flex items-center gap-1">
+              <span className="text-xs font-black leading-none uppercase tracking-tighter">{profile?.displayName || user.displayName || user.email?.split('@')[0]}</span>
+              <span className="text-[9px] text-primary uppercase font-black mt-1 tracking-[0.2em] flex items-center gap-1">
                 <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'owner' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
-                {profile?.role === 'owner' ? 'Administrator' : 'Verified Seller'}
+                {profile?.role === 'owner' ? 'System Administrator' : 'Sales Operator'}
               </span>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-destructive hover:bg-destructive/10">
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-destructive hover:bg-destructive/10 h-10 w-10">
               <LogOut size={18} />
             </Button>
           </div>
