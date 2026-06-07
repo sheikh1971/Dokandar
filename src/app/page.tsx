@@ -7,14 +7,18 @@ import { SellerPortal } from "@/components/seller/SellerPortal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, User as UserIcon, LogIn, ShieldCheck } from "lucide-react";
+  Zap, 
+  LogOut, 
+  Mail, 
+  Lock, 
+  Loader2, 
+  ShieldAlert, 
+  User as UserIcon, 
+  LogIn, 
+  ShieldCheck 
+} from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -148,18 +152,17 @@ export default function Home() {
             </div>
 
             {isSignUp && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Assign Operational Role</Label>
-                <Select value={authRole} onValueChange={(v: any) => setAuthRole(v)}>
-                  <SelectTrigger className="h-14 rounded-2xl bg-muted/30 border-border font-bold focus:ring-primary">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border">
-                    <SelectItem value="admin" className="font-black text-[10px] uppercase tracking-widest text-primary">Super Admin / Owner</SelectItem>
-                    <SelectItem value="seller" className="font-black text-[10px] uppercase tracking-widest">Seller / Staff Portal</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[8px] text-primary font-bold uppercase tracking-widest mt-1 text-center">Selected role is a strict entry condition.</p>
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 bg-muted/20 p-4 rounded-2xl border border-border/50">
+                 <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Super Admin Access</Label>
+                    <Switch 
+                      checked={authRole === "admin"} 
+                      onCheckedChange={(checked) => setAuthRole(checked ? "admin" : "seller")}
+                    />
+                 </div>
+                 <p className="text-[8px] text-primary font-black uppercase tracking-[0.2em] text-center border-t border-border/30 pt-3">
+                    {authRole === 'admin' ? 'Elevated Privileges Active' : 'Standard POS Access Only'}
+                 </p>
               </div>
             )}
 
