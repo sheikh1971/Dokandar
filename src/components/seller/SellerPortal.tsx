@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils";
 
 export function SellerPortal() {
   const { toast } = useToast();
-  const { firestore } = useFirestore();
+  const { firestore } = useFirebase().firestore;
   const { user } = useUser();
   const [lang, setLang] = useState<"bn" | "en">("en");
   const [cart, setCart] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
@@ -185,9 +185,25 @@ export function SellerPortal() {
     }
   }[lang];
 
-  const handleProductSelect = (product: { name: string, price: number }) => {
+  const handleProductSelect = (product: any) => {
+    // Populate manual adjustment fields
     setQuickItemName(product.name);
     setQuickItemPrice(product.price.toString());
+    
+    // Automatically add to cart
+    const newItem = {
+      id: `auto-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: product.name,
+      price: product.price,
+      qty: 1
+    };
+    setCart(prev => [...prev, newItem]);
+    
+    toast({
+      title: "Added to Cart",
+      description: `${product.name} added at ৳${product.price}`,
+      duration: 1000
+    });
   };
 
   const handleQuickAdd = () => {
@@ -425,7 +441,12 @@ export function SellerPortal() {
                   {productsLoading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={32} /></div> : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {products?.map((prod: any) => (
-                        <Button key={prod.id} variant="ghost" onClick={() => handleProductSelect(prod)} className="h-32 flex flex-col border border-border hover:border-primary hover:bg-primary/5 rounded-2xl shadow-sm group">
+                        <Button 
+                          key={prod.id} 
+                          variant="ghost" 
+                          onClick={() => handleProductSelect(prod)} 
+                          className="h-32 flex flex-col border border-border hover:border-primary hover:bg-primary/5 rounded-2xl shadow-sm group"
+                        >
                           <Package size={20} className="text-primary mb-2 group-hover:scale-110 transition-transform" />
                           <span className="text-[10px] font-black uppercase text-center">{prod.name}</span>
                           <span className="text-[12px] font-black text-primary mt-1">৳{prod.price}</span>
@@ -446,7 +467,7 @@ export function SellerPortal() {
               <CardContent className="space-y-4 flex-1">
                 <div className="max-h-[450px] overflow-y-auto space-y-3 pr-2 scrollbar-hide">
                   {cart.map((item, idx) => (
-                    <div key={idx} className="bg-muted/40 p-4 rounded-xl border border-border">
+                    <div key={item.id} className="bg-muted/40 p-4 rounded-xl border border-border">
                       <div className="flex justify-between items-start mb-2">
                         <p className="text-[11px] font-black uppercase">{item.name}</p>
                         <Button variant="ghost" size="icon" onClick={() => setCart(cart.filter((_, i) => i !== idx))} className="text-destructive h-8 w-8 hover:bg-destructive/10"><Trash2 size={14} /></Button>
