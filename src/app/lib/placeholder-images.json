@@ -1,0 +1,23 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "store-logo",
+      "description": "Futuristic neon store logo",
+      "imageUrl": "https://picsum.photos/seed/dokan1/200/200",
+      "imageHint": "neon logo"
+    },
+    {
+      "id": "product-grocery",
+      "description": "Grocery items with neon lighting",
+      "imageUrl": "https://picsum.photos/seed/grocery/400/300",
+      "imageHint": "grocery food"
+    },
+    {
+      "id": "product-electronics",
+      "description": "Electronics with glowing circuits",
+      "imageUrl": "https://picsum.photos/seed/tech/400/300",
+      "imageHint": "electronics gadget"
+    }
+  ]
+}

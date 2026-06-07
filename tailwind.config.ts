@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -10,8 +11,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
+        headline: ['Orbitron', 'sans-serif'],
+        body: ['Montserrat', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
@@ -88,10 +89,16 @@ export default {
             height: '0',
           },
         },
+        'rainbow-pulse': {
+          '0%, 100%': { borderColor: '#00FF41' },
+          '33%': { borderColor: '#FF00FF' },
+          '66%': { borderColor: '#00E5FF' },
+        }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'pulse-neon': 'rainbow-pulse 3s infinite linear',
       },
     },
   },
