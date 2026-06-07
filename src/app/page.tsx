@@ -47,7 +47,7 @@ export default function Home() {
     try {
       if (isSignUp) {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        // Provision the role immediately in Firestore
+        // Provision the role immediately in Firestore as a strict condition
         await setDoc(doc(firestore, "users", cred.user.uid), {
           uid: cred.user.uid,
           email: email,
@@ -98,7 +98,7 @@ export default function Home() {
     );
   }
 
-  // LOGIN SCREEN
+  // LOGIN TERMINAL
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-6">
@@ -159,6 +159,7 @@ export default function Home() {
                     <SelectItem value="seller" className="font-black text-[10px] uppercase tracking-widest">Seller / Staff Portal</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-[8px] text-primary font-bold uppercase tracking-widest mt-1 text-center">Selected role is a strict entry condition.</p>
               </div>
             )}
 
@@ -183,7 +184,7 @@ export default function Home() {
     );
   }
 
-  // MAIN AUTHENTICATED AREA
+  // MAIN PORTAL ROUTING (STRICT ROLE CONDITION)
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80 shadow-sm backdrop-blur-xl">
