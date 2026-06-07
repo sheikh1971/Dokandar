@@ -18,7 +18,8 @@ import {
   History,
   AlertTriangle,
   Clock,
-  User as UserIcon
+  User as UserIcon,
+  Edit3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,8 @@ import {
   CartesianGrid
 } from "recharts";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import { FirestorePermissionError } from "@/firebase/errors";
+import { errorEmitter } from "@/firebase/error-emitter";
 
 type AnalysisPeriod = "weekly" | "monthly" | "yearly" | "all";
 
@@ -123,20 +126,34 @@ export function AdminDashboard() {
 
   const handleAddProduct = () => {
     if (!firestore || !newProductName || !newProductPrice) return;
-    addDoc(collection(firestore, "products"), {
+    const productData = {
       name: newProductName,
       price: parseFloat(newProductPrice),
       category: newProductCategory,
       stock: 0,
       timestamp: serverTimestamp()
-    });
-    setNewProductName("");
-    setNewProductPrice("");
+    };
+
+    addDoc(collection(firestore, "products"), productData)
+      .then(() => {
+        setNewProductName("");
+        setNewProductPrice("");
+      })
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: "products", operation: "create", requestResourceData: productData
+        }));
+      });
   };
 
   const handleDeleteProduct = (id: string) => {
     if (!firestore) return;
-    deleteDoc(doc(firestore, "products", id));
+    deleteDoc(doc(firestore, "products", id))
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: `products/${id}`, operation: "delete"
+        }));
+      });
   };
 
   const handleGenerateAI = async () => {
@@ -248,33 +265,35 @@ export function AdminDashboard() {
 
         <TabsContent value="inventory" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="glass-morphism border-t-4 border-primary">
+            <Card className="glass-morphism border-t-4 border-primary shadow-xl">
               <CardHeader>
-                <CardTitle className="text-sm font-black text-primary uppercase">Add Product</CardTitle>
+                <CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Add Product</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Item Name</Label>
-                  <Input value={newProductName} onChange={(e) => setNewProductName(e.target.value)} placeholder="e.g., Luxury Coffee" className="bg-muted border-border" />
+                  <Label className="text-[10px] font-black uppercase tracking-widest">Item Name</Label>
+                  <Input value={newProductName} onChange={(e) => setNewProductName(e.target.value)} placeholder="e.g., Luxury Coffee" className="bg-muted border-border font-black h-12 rounded-xl" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Price (৳)</Label>
-                  <Input type="number" value={newProductPrice} onChange={(e) => setNewProductPrice(e.target.value)} placeholder="0.00" className="bg-muted border-border" />
+                  <Label className="text-[10px] font-black uppercase tracking-widest">Price (৳)</Label>
+                  <Input type="number" value={newProductPrice} onChange={(e) => setNewProductPrice(e.target.value)} placeholder="0.00" className="bg-muted border-border font-black h-12 rounded-xl" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase">Category</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest">Category</Label>
                   <Select value={newProductCategory} onValueChange={setNewProductCategory}>
-                    <SelectTrigger className="bg-muted border-border">
+                    <SelectTrigger className="bg-muted border-border h-12 rounded-xl font-black">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Essentials">Essentials</SelectItem>
                       <SelectItem value="Premium">Premium</SelectItem>
                       <SelectItem value="Beverage">Beverage</SelectItem>
+                      <SelectItem value="Snacks">Snacks</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={handleAddProduct} className="w-full bg-primary font-black uppercase tracking-widest">
+                <Button onClick={handleAddProduct} className="w-full bg-primary font-black uppercase tracking-widest h-14 rounded-2xl shadow-xl hover:scale-[1.02] transition-all">
                   <Plus className="mr-2" size={16} /> Deploy Product
                 </Button>
               </CardContent>
@@ -282,7 +301,7 @@ export function AdminDashboard() {
 
             <Card className="lg:col-span-2 glass-morphism">
               <CardHeader>
-                <CardTitle className="text-sm font-black uppercase">Live Inventory Management</CardTitle>
+                <CardTitle className="text-sm font-black uppercase tracking-widest">Live Inventory Management</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="max-h-[500px] overflow-y-auto">
@@ -301,12 +320,18 @@ export function AdminDashboard() {
                         <div className="text-right">
                           <p className="text-sm font-black text-primary">৳{p.price}</p>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive hover:bg-destructive/10">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive hover:bg-destructive/10 rounded-xl h-10 w-10">
                           <Trash2 size={16} />
                         </Button>
                       </div>
                     </div>
                   ))}
+                  {(!products || products.length === 0) && (
+                    <div className="py-20 text-center opacity-20">
+                       <Package size={48} className="mx-auto mb-4" />
+                       <p className="text-xs font-black uppercase tracking-widest">Inventory Empty</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -315,10 +340,10 @@ export function AdminDashboard() {
 
         <TabsContent value="history" className="space-y-6">
           <Card className="glass-morphism">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 py-4">
               <div>
                 <CardTitle className="text-sm font-black uppercase tracking-widest">Global Transaction Forensic Log</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase">Audit trail of all shop activity including modifications</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase">Audit trail of all shop activity including rectified records</CardDescription>
               </div>
               <TableIcon className="text-muted-foreground/30" size={24} />
             </CardHeader>
@@ -327,23 +352,23 @@ export function AdminDashboard() {
                 {stats.sales.map((sale: any) => (
                   <div key={sale.id} className="p-6 border-b border-border/30 hover:bg-muted/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center relative">
+                      <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center relative shadow-inner">
                         <History className="text-secondary" size={20} />
                         {sale.updatedAt && (
-                          <div className="absolute -top-1 -right-1">
-                            <AlertTriangle className="text-secondary animate-pulse" size={12} />
+                          <div className="absolute -top-1 -right-1 bg-white rounded-full">
+                            <AlertTriangle className="text-secondary animate-pulse" size={14} />
                           </div>
                         )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-black uppercase">TXN#{sale.id.slice(-6).toUpperCase()}</p>
+                          <p className="text-sm font-black uppercase tracking-tight">TXN#{sale.id.slice(-6).toUpperCase()}</p>
                           {sale.updatedAt ? (
-                            <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black uppercase flex items-center gap-1">
-                              MODIFIED BY {sale.updatedBy?.toUpperCase()}
+                            <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black uppercase flex items-center gap-1 border border-secondary/20">
+                              <Edit3 size={8} /> MODIFIED BY {sale.updatedBy?.split('@')[0].toUpperCase()}
                             </span>
                           ) : (
-                            <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase">VERIFIED</span>
+                            <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase border border-primary/20">VERIFIED</span>
                           )}
                         </div>
                         <div className="flex flex-col gap-0.5 mt-1">
@@ -353,26 +378,32 @@ export function AdminDashboard() {
                           <p className="text-[9px] text-muted-foreground/60 font-bold uppercase flex items-center gap-1">
                             <Clock size={10} /> {sale.timestamp?.toDate()?.toLocaleString()}
                           </p>
-                          {sale.updatedAt && (
-                            <p className="text-[8px] text-secondary font-black uppercase mt-1">
-                              Last Adjustment: {sale.updatedAt?.toDate()?.toLocaleString()}
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {sale.items?.map((item: any, i: number) => (
-                        <span key={i} className="text-[9px] font-black bg-muted border border-border px-3 py-1 rounded-lg uppercase">
+                        <span key={i} className="text-[9px] font-black bg-muted border border-border px-3 py-1 rounded-lg uppercase tracking-tight">
                           {item.name} x{item.qty}
                         </span>
                       ))}
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-black text-primary">৳{sale.total.toLocaleString()}</p>
+                      <p className="text-lg font-black text-primary tracking-tighter">৳{sale.total.toLocaleString()}</p>
+                      {sale.updatedAt && (
+                        <p className="text-[8px] text-secondary font-black uppercase mt-1">
+                           Rectified: {sale.updatedAt?.toDate()?.toLocaleTimeString()}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
+                {(!stats.sales || stats.sales.length === 0) && (
+                    <div className="py-20 text-center opacity-20">
+                       <History size={60} className="mx-auto mb-4" />
+                       <p className="text-xs font-black uppercase tracking-widest">No Operational History</p>
+                    </div>
+                  )}
               </div>
             </CardContent>
           </Card>
@@ -391,10 +422,10 @@ function StatCard({ title, value, subtitle, trend, icon, color }: any) {
   };
 
   return (
-    <Card className="glass-morphism p-6 group relative overflow-hidden">
+    <Card className="glass-morphism p-6 group relative overflow-hidden transition-all hover:translate-y-[-4px] border-none shadow-lg">
       <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-all duration-500`} />
       <div className="flex justify-between items-start relative z-10">
-        <div className={`p-2.5 rounded-xl ${colors[color]} bg-muted border`}>{icon}</div>
+        <div className={`p-2.5 rounded-xl ${colors[color]} bg-muted border shadow-inner`}>{icon}</div>
         {trend !== 'none' && (
           <div className={`text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${
             trend === 'up' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'
