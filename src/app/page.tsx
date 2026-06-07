@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -24,8 +23,19 @@ import {
   Key,
   Fingerprint,
   LockKeyhole,
-  Chrome
+  Chrome,
+  Settings
 } from "lucide-react";
+import { 
+  DropdownMenu, 
+  DropdownMenuTrigger, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator 
+} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import { ProfileSettings } from "@/components/shared/ProfileSettings";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { 
   signOut, 
@@ -349,18 +359,37 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3 pl-4 border-l border-border">
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex flex-col items-end">
-              <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.email?.split('@')[0]}</span>
-              <span className={`text-[9px] uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${profile?.role === 'admin' ? 'text-secondary bg-secondary/5 border-secondary/10' : 'text-primary bg-primary/5 border-primary/10'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
-                {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
-              </span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
-              <LogOut size={18} />
-            </Button>
-          </div>
+          <Dialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-3 p-2 h-auto rounded-2xl hover:bg-muted/50 transition-all border border-transparent hover:border-border group">
+                  <div className="hidden md:flex flex-col items-end">
+                    <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.displayName || user.email?.split('@')[0]}</span>
+                    <span className={`text-[9px] uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${profile?.role === 'admin' ? 'text-secondary bg-secondary/5 border-secondary/10' : 'text-primary bg-primary/5 border-primary/10'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
+                      {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
+                    </span>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center border border-border group-hover:border-primary/30 transition-all">
+                    <UserIcon size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 glass-morphism rounded-2xl border-border p-2 mt-2 shadow-2xl animate-in zoom-in-95 duration-200">
+                <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4 py-3">Security Terminal</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-border/50 mx-2" />
+                <DialogTrigger asChild>
+                  <DropdownMenuItem className="rounded-xl font-black text-[10px] uppercase tracking-widest p-4 cursor-pointer hover:bg-primary/10 hover:text-primary transition-all flex items-center gap-3">
+                    <Settings size={16} /> Profile & Settings
+                  </DropdownMenuItem>
+                </DialogTrigger>
+                <DropdownMenuItem onClick={handleLogout} className="rounded-xl font-black text-[10px] uppercase tracking-widest p-4 cursor-pointer text-destructive hover:bg-destructive/10 transition-all flex items-center gap-3 mt-1">
+                  <LogOut size={16} /> Terminate Session
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <ProfileSettings />
+          </Dialog>
         </div>
       </header>
 
