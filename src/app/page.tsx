@@ -7,7 +7,7 @@ import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, Key } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, Key, User as UserIcon } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -23,7 +23,8 @@ export default function Home() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [view, setView] = useState<"seller" | "admin" | null>(null);
+  const [view, setView] = useState<"seller" | "admin">("seller");
+  const [showLogin, setShowLogin] = useState(false);
 
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user) return null;
@@ -32,14 +33,10 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
-  // Auto-view assignment based on role
+  // Auto-view assignment based on role when logged in as admin
   useEffect(() => {
-    if (!profileLoading && user) {
-      if (profile?.role === "admin") {
-        setView("admin");
-      } else {
-        setView("seller");
-      }
+    if (!profileLoading && user && profile?.role === "admin") {
+      setView("admin");
     }
   }, [profile, profileLoading, user]);
 
@@ -54,6 +51,7 @@ export default function Home() {
         title: "Authorization Success",
         description: "Credentials verified.",
       });
+      setShowLogin(false);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -65,27 +63,9 @@ export default function Home() {
     }
   };
 
-  const handleGoogleAuth = async () => {
-    if (!auth) return;
-    setIsAuthenticating(true);
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Connection Failed",
-        description: error.message,
-      });
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
   const handleLogout = () => {
     if (auth) {
       signOut(auth).then(() => {
-        setView(null);
         toast({
           title: "Session Terminated",
           description: "Logged out safely.",
@@ -94,143 +74,20 @@ export default function Home() {
     }
   };
 
-  if (authLoading || (user && profileLoading) || isAuthenticating) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Super Admin Credentials...</p>
+          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Initializing Smart Ledger...</p>
         </div>
       </div>
     );
   }
 
-  // LOGIN SCREEN
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-        <div className="max-w-md w-full glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 border-primary shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-5">
-            <ShieldAlert size={120} />
-          </div>
-          
-          <div className="text-center space-y-3 relative z-10">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform">
-              <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
-            </div>
-            <div className="space-y-1">
-              <h1 className="font-headline text-3xl font-black uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h1>
-              <p className="text-muted-foreground text-[9px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Super Admin Command Center</p>
-            </div>
-          </div>
-
-          <div className="space-y-6 relative z-10">
-            <form onSubmit={handleEmailAuth} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Admin Email</Label>
-                <div className="relative group">
-                  <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="admin@shop.com" 
-                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-border focus:ring-primary focus:border-primary font-bold" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)} 
-                    required 
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    placeholder="••••••••" 
-                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-border focus:ring-primary focus:border-primary font-bold" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                    required 
-                  />
-                </div>
-              </div>
-              <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest">
-                Authorize Login
-              </Button>
-            </form>
-
-            <div className="flex items-center gap-4 py-2">
-              <Separator className="flex-1" />
-              <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest px-2">OR</span>
-              <Separator className="flex-1" />
-            </div>
-
-            <Button 
-              onClick={handleGoogleAuth} 
-              variant="outline" 
-              className="w-full py-8 flex items-center justify-center gap-3 border-border hover:bg-muted font-black rounded-2xl transition-all shadow-sm uppercase tracking-widest text-xs"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-              </svg>
-              Google Admin Login
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // HELP VIEW FOR USERS NOT YET ASSIGNED 'ADMIN' ROLE
-  if (user && profile?.role !== "admin" && view !== "seller") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-        <div className="max-w-md w-full glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 border-secondary shadow-2xl text-center">
-          <div className="space-y-4">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center shadow-lg">
-              <Key className="text-secondary-foreground" size={32} />
-            </div>
-            <h2 className="font-headline text-2xl font-black uppercase">Role Assignment Required</h2>
-            <p className="text-muted-foreground text-xs leading-relaxed uppercase font-bold">
-              You are authenticated as <span className="text-foreground font-black">{user.email}</span>, but you have not been assigned the <span className="text-secondary font-black">admin</span> role in Firestore.
-            </p>
-          </div>
-
-          <div className="bg-muted p-6 rounded-2xl border border-border text-left space-y-4">
-            <p className="text-[10px] font-black uppercase text-muted-foreground">Setup Instructions:</p>
-            <ol className="text-[9px] font-bold space-y-2 uppercase text-foreground/70">
-              <li>1. Go to Firebase Console &gt; Firestore &gt; Data</li>
-              <li>2. Create a collection named <code className="text-secondary">users</code></li>
-              <li>3. Add a document with ID: <code className="text-primary bg-primary/5 px-1">{user.uid}</code></li>
-              <li>4. Add field: <code className="text-secondary">role</code>: "admin"</li>
-            </ol>
-            <div className="pt-2">
-              <p className="text-[8px] font-black text-muted-foreground uppercase">Your UID (Copy this):</p>
-              <p className="text-[10px] font-black select-all bg-background p-2 rounded border border-border mt-1">{user.uid}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <Button onClick={() => setView("seller")} variant="outline" className="w-full py-6 font-black uppercase tracking-widest text-[10px]">
-              Proceed to Seller Portal
-            </Button>
-            <Button onClick={handleLogout} variant="ghost" className="w-full text-destructive font-black uppercase tracking-widest text-[10px]">
-              Logout & Switch Account
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // MAIN APP SHELL
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* PERSISTENT HEADER WITH BOTH PORTALS ACCESSIBLE */}
       <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
@@ -241,51 +98,113 @@ export default function Home() {
           </h1>
         </div>
 
+        {/* VIEW SELECTOR - ACCESSIBLE WITHOUT AUTH */}
         <div className="flex items-center gap-4">
-          {profile?.role === "admin" && (
-            <div className="flex gap-1 p-1 bg-muted rounded-2xl border border-border shadow-inner">
-              <Button
-                variant={view === "seller" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setView("seller")}
-                className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
-                  view === "seller" ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground"
-                }`}
-              >
-                <ShoppingBag className="mr-2" size={14} />
-                POS
-              </Button>
-              <Button
-                variant={view === "admin" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setView("admin")}
-                className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
-                  view === "admin" ? "bg-secondary text-secondary-foreground shadow-md" : "text-muted-foreground"
-                }`}
-              >
-                <LayoutDashboard className="mr-2" size={14} />
-                SUPER ADMIN
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-1 p-1 bg-muted rounded-2xl border border-border shadow-inner">
+            <Button
+              variant={view === "seller" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("seller")}
+              className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
+                view === "seller" ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground"
+              }`}
+            >
+              <ShoppingBag className="mr-2" size={14} />
+              SELLER POS
+            </Button>
+            <Button
+              variant={view === "admin" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setView("admin")}
+              className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
+                view === "admin" ? "bg-secondary text-secondary-foreground shadow-md" : "text-muted-foreground"
+              }`}
+            >
+              <LayoutDashboard className="mr-2" size={14} />
+              SUPER ADMIN
+            </Button>
+          </div>
 
           <div className="flex items-center gap-3 pl-4 border-l border-border">
-            <div className="hidden md:flex flex-col items-end">
-              <span className="text-xs font-black leading-none uppercase tracking-tighter">{profile?.displayName || user.displayName || user.email?.split('@')[0]}</span>
-              <span className="text-[9px] text-primary uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
-                <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
-                {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
-              </span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive hover:bg-destructive/10 h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
-              <LogOut size={18} />
-            </Button>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex flex-col items-end">
+                  <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.email?.split('@')[0]}</span>
+                  <span className="text-[9px] text-primary uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
+                    <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
+                    {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
+                  </span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive hover:bg-destructive/10 h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
+                  <LogOut size={18} />
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setShowLogin(!showLogin)} variant="outline" className="rounded-2xl font-black text-[10px] tracking-[0.2em] uppercase h-10 px-6 border-border hover:bg-muted">
+                <UserIcon size={14} className="mr-2" />
+                Auth
+              </Button>
+            )}
           </div>
         </div>
       </header>
 
       <main className="p-6">
         <div className="max-w-7xl mx-auto">
+          {/* OPTIONAL LOGIN DRAWER/SECTION */}
+          {showLogin && !user && (
+            <div className="mb-12 max-w-md mx-auto glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 border-primary shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-top-4">
+              <div className="absolute top-0 right-0 p-4 opacity-5">
+                <ShieldAlert size={120} />
+              </div>
+              
+              <div className="text-center space-y-3 relative z-10">
+                <div className="mx-auto w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg">
+                  <Zap className="text-primary-foreground fill-primary-foreground" size={24} />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="font-headline text-2xl font-black uppercase tracking-tighter">Authorize <span className="text-primary">Session</span></h2>
+                  <p className="text-muted-foreground text-[8px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Super Admin Command Center</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleEmailAuth} className="space-y-5 relative z-10">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Admin Email</Label>
+                  <div className="relative group">
+                    <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                    <Input 
+                      type="email" 
+                      placeholder="admin@shop.com" 
+                      className="pl-12 h-14 rounded-2xl bg-muted/30 border-border font-bold" 
+                      value={email} 
+                      onChange={(e) => setEmail(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
+                  <div className="relative group">
+                    <Lock className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                    <Input 
+                      type="password" 
+                      placeholder="••••••••" 
+                      className="pl-12 h-14 rounded-2xl bg-muted/30 border-border font-bold" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                </div>
+                <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest" disabled={isAuthenticating}>
+                  {isAuthenticating ? <Loader2 className="animate-spin" /> : "Verify Identity"}
+                </Button>
+              </form>
+            </div>
+          )}
+
+          {/* MAIN APP SHELL CONTENT */}
           {view === "admin" ? <AdminDashboard /> : <SellerPortal />}
         </div>
       </main>
