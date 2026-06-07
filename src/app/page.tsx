@@ -1,13 +1,11 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { SellerPortal } from "@/components/seller/SellerPortal";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, Key, User as UserIcon } from "lucide-react";
+import { Zap, LogOut, Mail, Lock, Loader2, ShieldAlert, User as UserIcon } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -22,7 +20,6 @@ export default function Home() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [view, setView] = useState<"seller" | "admin">("seller");
   const [showLogin, setShowLogin] = useState(false);
 
   const userProfileQuery = useMemo(() => {
@@ -31,15 +28,6 @@ export default function Home() {
   }, [firestore, user]);
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
-
-  // Auto-view assignment based on role when logged in
-  useEffect(() => {
-    if (!profileLoading && user && profile?.role === "admin") {
-      setView("admin");
-    } else if (!profileLoading && user && profile?.role !== "admin") {
-      setView("seller");
-    }
-  }, [profile, profileLoading, user]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +59,6 @@ export default function Home() {
           title: "Session Terminated",
           description: "Logged out safely.",
         });
-        setView("seller");
       });
     }
   };
@@ -107,7 +94,7 @@ export default function Home() {
                 <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.email?.split('@')[0]}</span>
                 <span className="text-[9px] text-primary uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
                   <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
-                  {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
+                  {profile?.role === 'admin' ? 'SUPER ADMIN' : 'USER'}
                 </span>
               </div>
               <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive hover:bg-destructive/10 h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
@@ -179,7 +166,7 @@ export default function Home() {
           )}
 
           {/* MAIN CONTENT AREA */}
-          {view === "admin" ? <AdminDashboard /> : <SellerPortal />}
+          <AdminDashboard />
         </div>
       </main>
     </div>
