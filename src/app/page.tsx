@@ -7,7 +7,7 @@ import { OwnerDashboard } from "@/components/OwnerDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, UserCheck } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2, ShieldAlert } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -24,7 +24,6 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Fetch profile from Firestore to identify the user's role
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, "users", user.uid);
@@ -32,7 +31,6 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
-  // Determine view based on role
   const [view, setView] = useState<"seller" | "owner">("seller");
 
   useEffect(() => {
@@ -101,28 +99,31 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-bold animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Clearance...</p>
+          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Clearance...</p>
         </div>
       </div>
     );
   }
 
-  // Login Screen
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-        <div className="max-w-md w-full glass-morphism p-8 rounded-3xl space-y-8 border-t-4 border-primary shadow-2xl">
-          <div className="text-center space-y-3">
+        <div className="max-w-md w-full glass-morphism p-10 rounded-[2.5rem] space-y-8 border-t-4 border-primary shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <ShieldAlert size={120} />
+          </div>
+          
+          <div className="text-center space-y-3 relative z-10">
             <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform">
               <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
             </div>
             <div className="space-y-1">
-              <h1 className="font-headline text-3xl font-bold uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h1>
-              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest border-y border-border py-1 inline-block px-4">Core Intelligence System</p>
+              <h1 className="font-headline text-3xl font-black uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h1>
+              <p className="text-muted-foreground text-[9px] font-black uppercase tracking-widest border-y border-border py-1.5 inline-block px-6">Super Admin & Seller Portal</p>
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 relative z-10">
             <form onSubmit={handleEmailAuth} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Access Identity</Label>
@@ -131,8 +132,8 @@ export default function Home() {
                   <Input 
                     id="email" 
                     type="email" 
-                    placeholder="name@dokan.com" 
-                    className="pl-12 h-14 rounded-xl bg-muted/30 border-border focus:ring-primary focus:border-primary font-bold" 
+                    placeholder="admin@shop.com" 
+                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-border focus:ring-primary focus:border-primary font-bold" 
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
                     required 
@@ -147,14 +148,14 @@ export default function Home() {
                     id="password" 
                     type="password" 
                     placeholder="••••••••" 
-                    className="pl-12 h-14 rounded-xl bg-muted/30 border-border focus:ring-primary focus:border-primary font-bold" 
+                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-border focus:ring-primary focus:border-primary font-bold" 
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
                     required 
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest">
+              <Button type="submit" className="w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 uppercase tracking-widest">
                 Authorize Login
               </Button>
             </form>
@@ -168,7 +169,7 @@ export default function Home() {
             <Button 
               onClick={handleGoogleAuth} 
               variant="outline" 
-              className="w-full py-8 flex items-center justify-center gap-3 border-border hover:bg-muted font-bold rounded-2xl transition-all shadow-sm uppercase tracking-tighter"
+              className="w-full py-8 flex items-center justify-center gap-3 border-border hover:bg-muted font-black rounded-2xl transition-all shadow-sm uppercase tracking-widest text-xs"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -176,12 +177,12 @@ export default function Home() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
-              Google Verification
+              Google Identity
             </Button>
 
             <div className="bg-muted/50 p-4 rounded-xl border border-border">
-              <p className="text-center text-[9px] text-muted-foreground leading-relaxed uppercase font-black tracking-widest">
-                Protected Portal. Access restricted to authorized personnel. Roles managed via core database.
+              <p className="text-center text-[8px] text-muted-foreground leading-relaxed uppercase font-black tracking-widest">
+                No user self-registration. Credentials must be pre-authorized in core systems.
               </p>
             </div>
           </div>
@@ -190,28 +191,27 @@ export default function Home() {
     );
   }
 
-  // Authenticated State (Role-Based Rendering)
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80">
+      <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
             <Zap className="text-primary-foreground fill-primary-foreground" size={20} />
           </div>
-          <h1 className="font-headline text-2xl tracking-tight font-bold hidden sm:block uppercase">
+          <h1 className="font-headline text-2xl tracking-tight font-black hidden sm:block uppercase">
             DOKAN<span className="text-primary">HISHAB</span>
           </h1>
         </div>
 
         <div className="flex items-center gap-4">
           {profile?.role === "owner" && (
-            <div className="flex gap-1 p-1 bg-muted rounded-xl border border-border">
+            <div className="flex gap-1 p-1 bg-muted rounded-2xl border border-border shadow-inner">
               <Button
                 variant={view === "seller" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setView("seller")}
-                className={`rounded-lg font-black text-[10px] tracking-widest px-4 h-9 ${
-                  view === "seller" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
+                  view === "seller" ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground"
                 }`}
               >
                 <ShoppingBag className="mr-2" size={14} />
@@ -221,8 +221,8 @@ export default function Home() {
                 variant={view === "owner" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setView("owner")}
-                className={`rounded-lg font-black text-[10px] tracking-widest px-4 h-9 ${
-                  view === "owner" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground"
+                className={`rounded-xl font-black text-[9px] tracking-[0.2em] px-5 h-9 transition-all ${
+                  view === "owner" ? "bg-secondary text-secondary-foreground shadow-md" : "text-muted-foreground"
                 }`}
               >
                 <LayoutDashboard className="mr-2" size={14} />
@@ -234,12 +234,12 @@ export default function Home() {
           <div className="flex items-center gap-3 pl-4 border-l border-border">
             <div className="hidden md:flex flex-col items-end">
               <span className="text-xs font-black leading-none uppercase tracking-tighter">{profile?.displayName || user.displayName || user.email?.split('@')[0]}</span>
-              <span className="text-[9px] text-primary uppercase font-black mt-1 tracking-[0.2em] flex items-center gap-1">
+              <span className="text-[9px] text-primary uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
                 <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'owner' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
-                {profile?.role === 'owner' ? 'System Administrator' : 'Sales Operator'}
+                {profile?.role === 'owner' ? 'SUPER ADMIN' : 'SELLER'}
               </span>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-destructive hover:bg-destructive/10 h-10 w-10">
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-2xl text-destructive hover:bg-destructive/10 h-10 w-10 border border-transparent hover:border-destructive/20 transition-all">
               <LogOut size={18} />
             </Button>
           </div>
