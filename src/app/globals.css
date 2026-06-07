@@ -1,29 +1,28 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: 240 10% 2%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 4%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 4%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 135 100% 50%; /* #00FF41 Electric Green */
-  --primary-foreground: 240 10% 2%;
-  --secondary: 300 100% 50%; /* #FF00FF Hot Magenta */
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 5% 15%;
-  --muted-foreground: 240 5% 65%;
-  --accent: 186 100% 50%; /* #00E5FF Electric Cyan */
-  --accent-foreground: 240 10% 2%;
-  --destructive: 0 100% 50%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 5% 20%;
-  --input: 240 5% 15%;
-  --ring: 135 100% 50%;
-  --radius: 0.75rem;
+  --background: 222 47% 6%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 8%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 142 71% 45%; /* Emerald Green */
+  --primary-foreground: 144 33% 97%;
+  --secondary: 217 32% 17%; /* Muted Navy */
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 32% 17%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 199 89% 48%; /* Sky Blue */
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217 32% 17%;
+  --input: 217 32% 17%;
+  --ring: 142 71% 45%;
+  --radius: 0.5rem;
 }
 
 @layer base {
@@ -32,46 +31,32 @@
   }
   body {
     @apply bg-background text-foreground selection:bg-primary/30;
-    background-image: radial-gradient(circle at 50% 50%, rgba(0, 255, 65, 0.05) 0%, transparent 50%),
-                      radial-gradient(circle at 20% 80%, rgba(255, 0, 255, 0.05) 0%, transparent 40%);
+    background-image: radial-gradient(circle at 50% -20%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+                      radial-gradient(circle at 0% 100%, rgba(14, 165, 233, 0.05) 0%, transparent 40%);
     background-attachment: fixed;
   }
 }
 
 .glass-morphism {
-  @apply bg-opacity-20 backdrop-blur-xl border border-white/10;
-  background: rgba(10, 10, 10, 0.7);
+  @apply bg-card/60 backdrop-blur-md border border-white/5;
 }
 
-.neon-border-green {
-  box-shadow: 0 0 10px rgba(0, 255, 65, 0.3), inset 0 0 5px rgba(0, 255, 65, 0.1);
-  border-color: #00FF41;
+.subtle-border-primary {
+  @apply border-primary/20 hover:border-primary/40 transition-colors duration-300;
 }
 
-.neon-border-magenta {
-  box-shadow: 0 0 10px rgba(255, 0, 255, 0.3), inset 0 0 5px rgba(255, 0, 255, 0.1);
-  border-color: #FF00FF;
+.subtle-glow-emerald {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
 }
 
-.neon-border-cyan {
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3), inset 0 0 5px rgba(0, 229, 255, 0.1);
-  border-color: #00E5FF;
+.subtle-glow-blue {
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.1);
 }
 
-.neon-text-green {
-  text-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
+.font-headline {
+  font-family: 'Orbitron', sans-serif;
 }
 
-.neon-text-magenta {
-  text-shadow: 0 0 8px rgba(255, 0, 255, 0.8);
-}
-
-.neon-text-cyan {
-  text-shadow: 0 0 8px rgba(0, 229, 255, 0.8);
-}
-
-.dense-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
+.font-body {
+  font-family: 'Montserrat', sans-serif;
 }
