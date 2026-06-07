@@ -18,10 +18,16 @@ import {
   ArrowDownRight,
   Users,
   Briefcase,
-  Lock,
-  ShieldAlert
+  History,
+  Package,
+  Plus,
+  Trash2,
+  Table as TableIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Select, 
   SelectContent, 
@@ -30,8 +36,8 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
-import { useFirestore, useCollection, useUser, useDoc } from "@/firebase";
-import { collection, query, orderBy, Timestamp, doc } from "firebase/firestore";
+import { useFirestore, useCollection, useUser } from "@/firebase";
+import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
 import { startOfWeek, startOfMonth, startOfYear, isAfter, format } from "date-fns";
 import { 
   Bar, 
@@ -50,19 +56,14 @@ export function AdminDashboard() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   
+  // Product Management State
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductPrice, setNewProductPrice] = useState("");
+  const [newProductCategory, setNewProductCategory] = useState("Essentials");
+
   const { firestore } = useFirestore();
   const { user } = useUser();
 
-  // Profile lookup for UI role indicators
-  const userProfileQuery = useMemo(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, "users", user.uid);
-  }, [firestore, user]);
-
-  const { data: profile } = useDoc(userProfileQuery);
-
-  // Queries are allowed to run during building time
-  // Note: Firestore Security Rules still apply to the actual data fetch
   const salesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, "sales"), orderBy("timestamp", "desc"));
@@ -73,8 +74,14 @@ export function AdminDashboard() {
     return query(collection(firestore, "expenses"), orderBy("timestamp", "desc"));
   }, [firestore]);
 
-  const { data: rawSales, error: salesError } = useCollection(salesQuery);
-  const { data: rawExpenses, error: expensesError } = useCollection(expensesQuery);
+  const productsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "products"), orderBy("name", "asc"));
+  }, [firestore]);
+
+  const { data: rawSales } = useCollection(salesQuery);
+  const { data: rawExpenses } = useCollection(expensesQuery);
+  const { data: products } = useCollection(productsQuery);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -111,7 +118,6 @@ export function AdminDashboard() {
     const teamStats = Object.values(teamMap).sort((a, b) => b.total - a.total);
 
     const chartDataMap: Record<string, { name: string; sales: number; expenses: number }> = {};
-    
     filteredSales.forEach(s => {
       const d = (s.timestamp as Timestamp)?.toDate();
       const key = d ? format(d, period === 'yearly' ? 'MMM' : 'dd MMM') : 'Unknown';
@@ -119,27 +125,35 @@ export function AdminDashboard() {
       chartDataMap[key].sales += s.total || 0;
     });
 
-    filteredExpenses.forEach(e => {
-      const d = (e.timestamp as Timestamp)?.toDate();
-      const key = d ? format(d, period === 'yearly' ? 'MMM' : 'dd MMM') : 'Unknown';
-      if (!chartDataMap[key]) chartDataMap[key] = { name: key, sales: 0, expenses: 0 };
-      chartDataMap[key].expenses += e.amount || 0;
-    });
-
     const chartData = Object.values(chartDataMap).sort((a, b) => a.name.localeCompare(b.name));
 
     return { 
-      totalRevenue, 
-      totalExpenses, 
-      netProfit, 
+      totalRevenue, totalExpenses, netProfit, 
       salesCount: filteredSales.length,
       expensesCount: filteredExpenses.length,
       sales: filteredSales,
       expenses: filteredExpenses,
-      chartData,
-      teamStats
+      chartData, teamStats
     };
   }, [rawSales, rawExpenses, period]);
+
+  const handleAddProduct = () => {
+    if (!firestore || !newProductName || !newProductPrice) return;
+    addDoc(collection(firestore, "products"), {
+      name: newProductName,
+      price: parseFloat(newProductPrice),
+      category: newProductCategory,
+      stock: 100,
+      timestamp: serverTimestamp()
+    });
+    setNewProductName("");
+    setNewProductPrice("");
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    if (!firestore) return;
+    deleteDoc(doc(firestore, "products", id));
+  };
 
   const handleGenerateAI = async () => {
     setIsAiLoading(true);
@@ -161,216 +175,210 @@ export function AdminDashboard() {
             <ShieldCheck className="text-secondary" size={20} />
             <h2 className="text-2xl font-black font-headline tracking-tighter uppercase">SUPER ADMIN <span className="text-primary">PORTAL</span></h2>
           </div>
-          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Global Financial Intelligence & Performance Metrics</p>
+          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Global Shop Forensics & Supply Intelligence</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
-          {(salesError || expensesError) && (
-            <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-3 py-1.5 rounded-full border border-destructive/20 animate-pulse">
-              <ShieldAlert size={12} />
-              <span className="text-[9px] font-black uppercase tracking-widest">Security Rules Active: Verify admin role in Firestore</span>
-            </div>
-          )}
-          
-          <div className="flex items-center gap-2 bg-muted px-4 py-2 rounded-2xl border border-border shadow-inner">
-            <Filter size={14} className="text-muted-foreground" />
-            <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
-              <SelectTrigger className="w-[140px] h-7 border-none bg-transparent shadow-none font-black text-[10px] uppercase focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weekly">Weekly Analysis</SelectItem>
-                <SelectItem value="monthly">Monthly Cycle</SelectItem>
-                <SelectItem value="yearly">Annual Overview</SelectItem>
-                <SelectItem value="all">Full History</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="flex items-center gap-3">
+          <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+            <SelectTrigger className="w-[140px] h-10 rounded-2xl border-border bg-muted font-black text-[10px] uppercase">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="weekly">Weekly Analysis</SelectItem>
+              <SelectItem value="monthly">Monthly Cycle</SelectItem>
+              <SelectItem value="yearly">Annual Overview</SelectItem>
+            </SelectContent>
+          </Select>
 
            <Button 
-            className="bg-primary text-primary-foreground font-black shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all rounded-2xl h-12 px-6 uppercase tracking-widest text-[10px]"
+            className="bg-primary text-primary-foreground font-black shadow-lg rounded-2xl h-10 px-6 uppercase tracking-widest text-[10px]"
             onClick={handleGenerateAI}
             disabled={isAiLoading}
            >
               <BrainCircuit className="mr-2" size={16} /> 
-              {isAiLoading ? "Processing Intelligence..." : "Neural Forensic Analysis"}
+              {isAiLoading ? "Processing..." : "Neural Forecast"}
            </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          title="Revenue Generated" 
-          value={`৳${stats.totalRevenue.toLocaleString()}`} 
-          subtitle={`${stats.salesCount} Verified Transactions`}
-          trend="up" 
-          icon={<DollarSign size={20} />} 
-          color="primary"
-        />
-        <StatCard 
-          title="Total Expenditure" 
-          value={`৳${stats.totalExpenses.toLocaleString()}`} 
-          subtitle={`${stats.expensesCount} Operational Costs`}
-          trend="down" 
-          icon={<TrendingDown size={20} />} 
-          color="destructive"
-        />
-        <StatCard 
-          title="Net Liquidity" 
-          value={`৳${stats.netProfit.toLocaleString()}`} 
-          subtitle="Real-time Profitability"
-          trend={stats.netProfit >= 0 ? "up" : "down"} 
-          icon={<TrendingUp size={20} />} 
-          color="secondary"
-        />
-        <StatCard 
-          title="System Health" 
-          value={user ? "SECURE" : "GUEST"} 
-          subtitle={user ? "All Datastreams Active" : "Limited Access"}
-          trend="none" 
-          icon={<Activity size={20} />} 
-          color="muted"
-        />
+        <StatCard title="Revenue In" value={`৳${stats.totalRevenue.toLocaleString()}`} trend="up" icon={<DollarSign size={20} />} color="primary" />
+        <StatCard title="Operational Burn" value={`৳${stats.totalExpenses.toLocaleString()}`} trend="down" icon={<TrendingDown size={20} />} color="destructive" />
+        <StatCard title="Liquidity" value={`৳${stats.netProfit.toLocaleString()}`} trend={stats.netProfit >= 0 ? "up" : "down"} icon={<TrendingUp size={20} />} color="secondary" />
+        <StatCard title="Active Catalog" value={products?.length || 0} trend="none" icon={<Package size={20} />} color="muted" subtitle="Live Inventory Items" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 glass-morphism border-t-4 border-primary shadow-xl overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 pb-6">
-            <div>
-              <CardTitle className="text-sm font-black tracking-[0.2em] text-primary uppercase">Financial Velocity Analysis</CardTitle>
-              <CardDescription className="text-[10px] font-bold uppercase mt-1">Comparing Inflow vs Outflow over the selected period</CardDescription>
-            </div>
-            <BarChart3 className="text-muted-foreground/30" size={24} />
-          </CardHeader>
-          <CardContent className="pt-6 h-[350px]">
-            <ChartContainer config={{ 
-              sales: { label: "Revenue In", color: "hsl(var(--primary))" },
-              expenses: { label: "Expenses Out", color: "hsl(var(--destructive))" }
-            }}>
-              <BarChart data={stats.chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                <XAxis dataKey="name" fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} />
-                <YAxis fontSize={10} fontWeight="bold" tickLine={false} axisLine={false} tickFormatter={(v) => `৳${v}`} />
-                <Tooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={20} />
-                <Bar dataKey="expenses" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} barSize={20} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="bg-muted border border-border p-1 h-12 rounded-2xl grid grid-cols-3 w-full md:w-[600px]">
+          <TabsTrigger value="overview" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <BarChart3 className="mr-2" size={14} /> Intelligence
+          </TabsTrigger>
+          <TabsTrigger value="inventory" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Package className="mr-2" size={14} /> Inventory
+          </TabsTrigger>
+          <TabsTrigger value="history" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <History className="mr-2" size={14} /> Transactions
+          </TabsTrigger>
+        </TabsList>
 
-        <Card className="glass-morphism border-t-4 border-secondary shadow-xl flex flex-col">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-sm font-black flex items-center gap-2 text-secondary uppercase tracking-[0.2em]">
-              <BrainCircuit size={18} /> AI COMMAND INSIGHTS
-            </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase">Automated Financial Intelligence</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto px-6">
-            {aiSummary ? (
-              <div className="text-[11px] leading-relaxed text-foreground/80 font-bold space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                {aiSummary.split('\n').map((line, i) => (
-                  <p key={i} className="border-l-2 border-secondary/20 pl-3 py-1">{line}</p>
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2 glass-morphism border-t-4 border-primary">
+              <CardHeader>
+                <CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Financial Velocity</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[350px] pt-4">
+                <ChartContainer config={{ sales: { label: "Sales", color: "hsl(var(--primary))" } }}>
+                  <BarChart data={stats.chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                    <XAxis dataKey="name" fontSize={10} fontWeight="bold" axisLine={false} tickLine={false} />
+                    <YAxis fontSize={10} fontWeight="bold" axisLine={false} tickLine={false} tickFormatter={(v) => `৳${v}`} />
+                    <Tooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-morphism border-t-4 border-secondary">
+              <CardHeader>
+                <CardTitle className="text-sm font-black text-secondary uppercase tracking-widest flex items-center gap-2">
+                  <BrainCircuit size={18} /> AI Insight Engine
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {aiSummary ? (
+                  <div className="text-[11px] leading-relaxed font-bold border-l-2 border-secondary/20 pl-4 py-1">
+                    {aiSummary.split('\n').map((line, i) => <p key={i} className="mb-2">{line}</p>)}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
+                    <BrainCircuit size={40} className="mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Engine Standby</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="inventory" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="glass-morphism border-t-4 border-primary">
+              <CardHeader>
+                <CardTitle className="text-sm font-black text-primary uppercase">Add Product</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Item Name</Label>
+                  <Input value={newProductName} onChange={(e) => setNewProductName(e.target.value)} placeholder="e.g., Luxury Coffee" className="bg-muted border-border" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Price (৳)</Label>
+                  <Input type="number" value={newProductPrice} onChange={(e) => setNewProductPrice(e.target.value)} placeholder="0.00" className="bg-muted border-border" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase">Category</Label>
+                  <Select value={newProductCategory} onValueChange={setNewProductCategory}>
+                    <SelectTrigger className="bg-muted border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Essentials">Essentials</SelectItem>
+                      <SelectItem value="Premium">Premium</SelectItem>
+                      <SelectItem value="Beverage">Beverage</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleAddProduct} className="w-full bg-primary font-black uppercase tracking-widest">
+                  <Plus className="mr-2" size={16} /> Deploy Product
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2 glass-morphism">
+              <CardHeader>
+                <CardTitle className="text-sm font-black uppercase">Live Inventory Management</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="max-h-[500px] overflow-y-auto">
+                  {products?.map((p: any) => (
+                    <div key={p.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-[10px] uppercase">
+                          {p.category?.[0] || 'P'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-foreground uppercase">{p.name}</p>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase">{p.category}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <p className="text-sm font-black text-primary">৳{p.price}</p>
+                          <p className="text-[9px] font-black text-muted-foreground uppercase">{p.stock} In Stock</p>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive hover:bg-destructive/10">
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-6">
+          <Card className="glass-morphism">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-black uppercase tracking-widest">Global Transaction Forensic Log</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase">Audit trail of all shop activity</CardDescription>
+              </div>
+              <TableIcon className="text-muted-foreground/30" size={24} />
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-[600px] overflow-y-auto">
+                {stats.sales.map((sale: any) => (
+                  <div key={sale.id} className="p-6 border-b border-border/30 hover:bg-muted/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center">
+                        <History className="text-secondary" size={20} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-black uppercase">TXN#{sale.id.slice(-6).toUpperCase()}</p>
+                          <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-black uppercase">VERIFIED</span>
+                        </div>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">
+                          Processed by {sale.sellerName} • {sale.timestamp?.toDate()?.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {sale.items?.map((item: any, i: number) => (
+                        <span key={i} className="text-[9px] font-black bg-muted border border-border px-3 py-1 rounded-lg uppercase">
+                          {item.name} x{item.qty}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-primary">৳{sale.total.toLocaleString()}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
-                <div className="w-20 h-20 rounded-3xl bg-secondary/5 flex items-center justify-center border border-secondary/10">
-                  <BrainCircuit className="text-secondary/20 w-10 h-10" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Neural Engine Standby</p>
-                  <p className="text-[9px] text-muted-foreground/60 max-w-[200px] font-bold leading-normal uppercase text-center">
-                    Initiate forensic analysis to extract performance patterns from {period} datasets.
-                  </p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glass-morphism shadow-lg border-t-4 border-destructive">
-          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-destructive/5 py-4">
-            <CardTitle className="text-xs font-black text-destructive uppercase tracking-[0.2em] flex items-center gap-2">
-              <AlertTriangle size={18} /> Outflow Monitoring
-            </CardTitle>
-            <PieChartIcon size={18} className="text-destructive/30" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="max-h-[300px] overflow-y-auto">
-              {stats.expenses.map((exp, i) => (
-                <div key={i} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-destructive/5 transition-colors">
-                  <div>
-                    <p className="text-[10px] font-black uppercase text-foreground">{exp.description || exp.category}</p>
-                    <p className="text-[8px] text-muted-foreground font-bold uppercase">{exp.timestamp?.toDate()?.toLocaleDateString()}</p>
-                  </div>
-                  <span className="text-xs font-black text-destructive">-৳{exp.amount?.toLocaleString()}</span>
-                </div>
-              ))}
-              {!stats.expenses.length && (
-                <div className="flex flex-col items-center justify-center py-20 text-center space-y-2 opacity-30">
-                  <ShieldAlert size={24} />
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">No records detected</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-morphism shadow-lg border-t-4 border-primary">
-          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-primary/5 py-4">
-            <CardTitle className="text-xs font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-              <Users size={18} /> Seller Performance
-            </CardTitle>
-            <Briefcase size={18} className="text-primary/30" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="max-h-[300px] overflow-y-auto">
-              {stats.teamStats.map((tm, i) => (
-                <div key={i} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-primary/5 transition-colors">
-                  <div>
-                    <p className="text-[10px] font-black uppercase text-foreground">{tm.name}</p>
-                    <p className="text-[8px] text-muted-foreground font-bold uppercase">{tm.count} Orders Processed</p>
-                  </div>
-                  <span className="text-xs font-black text-primary">৳{tm.total.toLocaleString()}</span>
-                </div>
-              ))}
-              {!stats.teamStats.length && (
-                <div className="flex flex-col items-center justify-center py-20 text-center space-y-2 opacity-30">
-                  <Users size={24} />
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">No active seller data</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-morphism shadow-lg border-t-4 border-secondary">
-          <CardHeader className="py-4 border-b border-border/50 bg-secondary/5">
-            <CardTitle className="text-xs font-black text-secondary flex items-center gap-2 uppercase tracking-[0.2em]">
-              <Activity size={18} /> Health Metrics
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-6 px-6">
-             <VelocityItem label="Margin Efficiency" value={stats.totalRevenue > 0 ? 100 - Math.floor((stats.totalExpenses / stats.totalRevenue) * 100) : 0} />
-             <VelocityItem label="Growth Trajectory" value={78} />
-             <VelocityItem label="System Reliability" value={99} />
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
 function StatCard({ title, value, subtitle, trend, icon, color }: any) {
-  const getTrendIcon = () => {
-    if (trend === 'up') return <ArrowUpRight size={14} />;
-    if (trend === 'down') return <ArrowDownRight size={14} />;
-    return null;
-  };
-
   const colors: Record<string, string> = {
     primary: "text-primary border-primary/20",
     secondary: "text-secondary border-secondary/20",
@@ -379,39 +387,23 @@ function StatCard({ title, value, subtitle, trend, icon, color }: any) {
   };
 
   return (
-    <Card className="glass-morphism p-6 transition-all hover:translate-y-[-4px] relative overflow-hidden group border-none">
-      <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}/5 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150 duration-500`} />
+    <Card className="glass-morphism p-6 group relative overflow-hidden">
+      <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-all duration-500`} />
       <div className="flex justify-between items-start relative z-10">
-        <div className={`bg-muted p-2.5 rounded-xl ${colors[color]} shadow-inner border`}>{icon}</div>
-        <div className={`text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 ${
-          trend === 'up' ? 'bg-primary/10 text-primary' : trend === 'down' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
-        }`}>
-          {trend !== 'none' && getTrendIcon()}
-          {trend === 'up' ? 'Gain' : trend === 'down' ? 'Loss' : 'Stable'}
-        </div>
+        <div className={`p-2.5 rounded-xl ${colors[color]} bg-muted border`}>{icon}</div>
+        {trend !== 'none' && (
+          <div className={`text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${
+            trend === 'up' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'
+          }`}>
+            {trend === 'up' ? 'Gain' : 'Loss'}
+          </div>
+        )}
       </div>
       <div className="mt-6 relative z-10">
         <p className="text-[8px] font-black text-muted-foreground tracking-[0.2em] uppercase mb-1">{title}</p>
-        <h3 className="text-2xl font-black text-foreground tracking-tighter">{value}</h3>
-        <p className="text-[8px] font-bold text-muted-foreground/50 uppercase mt-1">{subtitle}</p>
+        <h3 className="text-2xl font-black tracking-tighter">{value}</h3>
+        {subtitle && <p className="text-[8px] font-bold text-muted-foreground/50 uppercase mt-1">{subtitle}</p>}
       </div>
     </Card>
-  );
-}
-
-function VelocityItem({ label, value }: any) {
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between text-[9px] font-black uppercase tracking-[0.1em]">
-        <span className="text-foreground/70">{label}</span>
-        <span className="text-secondary">{value}%</span>
-      </div>
-      <div className="relative h-1.5 w-full bg-muted rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-secondary transition-all duration-1000 ease-out" 
-          style={{ width: `${value}%` }}
-        />
-      </div>
-    </div>
   );
 }

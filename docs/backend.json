@@ -8,10 +8,23 @@
       "properties": {
         "uid": { "type": "string", "description": "User ID." },
         "email": { "type": "string", "format": "email", "description": "Registered email." },
-        "role": { "type": "string", "enum": ["admin", "seller"], "description": "The assigned role. If missing, defaults to seller." },
+        "role": { "type": "string", "enum": ["admin", "seller"], "description": "The assigned role. Defaults to seller." },
         "displayName": { "type": "string", "description": "Full name." }
       },
       "required": ["uid", "email"]
+    },
+    "Product": {
+      "title": "Product Item",
+      "description": "Items available for sale in the shop.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "stock": { "type": "number" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["name", "price"]
     },
     "Sale": {
       "title": "Sale Record",
@@ -54,15 +67,19 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "User profile document. A user can read their own profile. Only users with the 'admin' role in their own profile document can read other users' profiles."
+      "description": "User profiles. Authenticated users can read their own. Admins can read all."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Shop inventory. Anyone can read. Only admins can write."
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Sales records. Any authenticated user can create a sale. Only users whose profile document has role 'admin' can read all sales."
+      "description": "Sales records. Sellers can create. Only admins can read all."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Expense records. Any authenticated user can create an expense. Only users whose profile document has role 'admin' can read all expenses."
+      "description": "Expense records. Sellers can create. Only admins can read all."
     }
   }
 }

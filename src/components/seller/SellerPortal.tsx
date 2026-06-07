@@ -1,16 +1,16 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Banknote, Package, Plus, Search, Trash2, ArrowRightLeft, ShieldCheck } from "lucide-react";
+import { ShoppingCart, Banknote, Package, Plus, Search, Trash2, ArrowRightLeft, ShieldCheck, ShoppingBag, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser } from "@/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useFirestore, useUser, useCollection } from "@/firebase";
+import { collection, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 
@@ -18,13 +18,21 @@ export function SellerPortal() {
   const { toast } = useToast();
   const { firestore } = useFirestore();
   const { user } = useUser();
-  const [lang, setLang] = useState<"bn" | "en">("bn");
+  const [lang, setLang] = useState<"bn" | "en">("en");
   const [cart, setCart] = useState<{ id: string; name: string; price: number; qty: number }[]>([]);
   
   // Expense form state
   const [expenseDesc, setExpenseDesc] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
-  const [expenseCat, setExpenseCat] = useState("");
+  const [expenseCat, setExpenseCat] = useState("Operations");
+
+  // Fetch Live Inventory
+  const productsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "products"), orderBy("name", "asc"));
+  }, [firestore]);
+
+  const { data: products, loading: productsLoading } = useCollection(productsQuery);
 
   const t = {
     bn: {
@@ -61,12 +69,25 @@ export function SellerPortal() {
     }
   }[lang];
 
-  const addToCart = (product: { name: string, price: number }) => {
-    setCart([...cart, { id: Math.random().toString(), name: product.name, price: product.price, qty: 1 }]);
+  const addToCart = (product: { id: string, name: string, price: number }) => {
+    const existing = cart.find(item => item.id === product.id);
+    if (existing) {
+      setCart(cart.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item));
+    } else {
+      setCart([...cart, { id: product.id, name: product.name, price: product.price, qty: 1 }]);
+    }
+    toast({
+      title: "Item Added",
+      description: `${product.name} added to cart.`,
+      duration: 1000
+    });
   };
 
   const handleCheckout = async () => {
-    if (!firestore || !user) return;
+    if (!firestore || !user) {
+      toast({ variant: "destructive", title: "Auth Required", description: "Login to process sales." });
+      return;
+    }
 
     const total = cart.reduce((acc, curr) => acc + curr.price * curr.qty, 0);
     const saleData = {
@@ -108,13 +129,9 @@ export function SellerPortal() {
 
     addDoc(collection(firestore, "expenses"), expenseData)
       .then(() => {
-        toast({
-          title: "Expense Added",
-          description: "Expense record saved."
-        });
+        toast({ title: "Expense Added", description: "Expense record saved." });
         setExpenseDesc("");
         setExpenseAmount("");
-        setExpenseCat("");
       })
       .catch(async (err) => {
         const pErr = new FirestorePermissionError({
@@ -129,82 +146,90 @@ export function SellerPortal() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-2">
-        <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <ArrowRightLeft className="text-primary" />
-          {lang === "bn" ? "বিক্রেতা পোর্টাল" : "SELLER PORTAL"}
+        <h2 className="text-xl font-black font-headline tracking-tighter uppercase flex items-center gap-2">
+          <ShoppingBag className="text-primary" />
+          {lang === "bn" ? "বিক্রেতা পোর্টাল" : "SELLER POS"}
         </h2>
         <Button 
           variant="outline" 
           size="sm" 
           onClick={() => setLang(lang === "bn" ? "en" : "bn")}
-          className="border-border text-foreground hover:bg-muted"
+          className="rounded-2xl font-black text-[10px] uppercase border-border"
         >
           {lang === "bn" ? "English" : "বাংলা"}
         </Button>
       </div>
 
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-muted border border-border p-1 mb-8">
-          <TabsTrigger value="sales" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs transition-all">
+        <TabsList className="grid w-full grid-cols-3 bg-muted border border-border p-1 mb-8 h-12 rounded-2xl">
+          <TabsTrigger value="sales" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
             <ShoppingCart className="mr-2" size={14} /> {t.sales}
           </TabsTrigger>
-          <TabsTrigger value="expenses" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs transition-all">
+          <TabsTrigger value="expenses" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
             <Banknote className="mr-2" size={14} /> {t.expenses}
           </TabsTrigger>
-          <TabsTrigger value="inventory" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs transition-all">
+          <TabsTrigger value="inventory" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
             <Package className="mr-2" size={14} /> {t.inventory}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2 glass-morphism">
+            <Card className="lg:col-span-2 glass-morphism border-t-4 border-primary">
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <CardTitle className="text-lg font-black uppercase tracking-widest flex items-center gap-2">
                   <Search size={18} className="text-primary" /> {t.addSale}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { name: "Coffee", price: 60 },
-                    { name: "Sandwich", price: 120 },
-                    { name: "Juice", price: 80 },
-                    { name: "Pastry", price: 150 },
-                    { name: "Water", price: 20 },
-                    { name: "Tea", price: 40 },
-                    { name: "Soda", price: 50 },
-                    { name: "Chips", price: 30 }
-                  ].map((prod, i) => (
-                    <Button 
-                      key={i} 
-                      variant="ghost" 
-                      onClick={() => addToCart(prod)}
-                      className="h-28 flex flex-col items-center justify-center border border-border hover:border-primary/50 hover:bg-primary/5 transition-all rounded-xl shadow-sm"
-                    >
-                      <Package size={24} className="mb-3 text-primary/60" />
-                      <span className="text-xs font-semibold">{prod.name}</span>
-                      <span className="text-xs text-muted-foreground mt-1 font-bold">৳{prod.price}</span>
-                    </Button>
-                  ))}
-                </div>
+                {productsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <Loader2 className="animate-spin text-primary" size={32} />
+                    <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Syncing Inventory...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {products?.map((prod: any) => (
+                      <Button 
+                        key={prod.id} 
+                        variant="ghost" 
+                        onClick={() => addToCart(prod)}
+                        className="h-32 flex flex-col items-center justify-center border border-border hover:border-primary hover:bg-primary/5 transition-all rounded-2xl shadow-sm group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                          <Package size={20} className="text-primary" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase text-center leading-tight mb-1">{prod.name}</span>
+                        <span className="text-[12px] font-black text-primary">৳{prod.price}</span>
+                      </Button>
+                    ))}
+                    {!products?.length && (
+                      <div className="col-span-full py-20 text-center opacity-40">
+                        <Package className="mx-auto mb-4" size={40} />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Inventory Empty • Admin Must Add Products</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            <Card className="glass-morphism">
+            <Card className="glass-morphism border-t-4 border-secondary">
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-foreground flex items-center justify-between">
+                <CardTitle className="text-lg font-black uppercase tracking-widest flex items-center justify-between">
                   {t.cart}
-                  <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-bold">{cart.length} items</span>
+                  <span className="text-[10px] bg-secondary/10 text-secondary px-3 py-1 rounded-full font-black">
+                    {cart.reduce((a, b) => a + b.qty, 0)} ITEMS
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2">
                   {cart.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-muted/40 p-3 rounded-lg border border-border">
+                    <div key={idx} className="flex justify-between items-center bg-muted/40 p-4 rounded-xl border border-border group">
                       <div>
-                        <p className="text-sm font-semibold">{item.name}</p>
-                        <p className="text-xs text-muted-foreground font-medium">৳{item.price} x {item.qty}</p>
+                        <p className="text-[11px] font-black uppercase leading-none">{item.name}</p>
+                        <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1.5">৳{item.price} x {item.qty}</p>
                       </div>
                       <Button variant="ghost" size="icon" onClick={() => {
                         const newCart = [...cart];
@@ -216,18 +241,19 @@ export function SellerPortal() {
                     </div>
                   ))}
                   {cart.length === 0 && (
-                    <div className="text-center py-12 text-muted-foreground italic text-sm">
-                      Your cart is currently empty.
+                    <div className="text-center py-20 opacity-30">
+                      <ShoppingCart className="mx-auto mb-4" size={32} />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Cart Standby</p>
                     </div>
                   )}
                 </div>
-                <div className="border-t border-border pt-4 space-y-3">
-                  <div className="flex justify-between text-lg font-bold">
+                <div className="border-t border-border pt-6 space-y-4">
+                  <div className="flex justify-between text-xl font-black uppercase tracking-tighter">
                     <span>{t.total}</span>
-                    <span className="text-primary">৳{cart.reduce((acc, curr) => acc + curr.price * curr.qty, 0)}</span>
+                    <span className="text-primary">৳{cart.reduce((acc, curr) => acc + curr.price * curr.qty, 0).toLocaleString()}</span>
                   </div>
                   <Button 
-                    className="w-full bg-primary text-primary-foreground font-bold shadow-md hover:scale-[1.01] transition-transform" 
+                    className="w-full bg-primary text-primary-foreground font-black py-8 rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-[0.2em] text-sm" 
                     disabled={cart.length === 0}
                     onClick={handleCheckout}
                   >
@@ -240,49 +266,62 @@ export function SellerPortal() {
         </TabsContent>
 
         <TabsContent value="expenses">
-          <Card className="glass-morphism max-w-2xl mx-auto">
+          <Card className="glass-morphism max-w-2xl mx-auto border-t-4 border-destructive">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-foreground">{t.addExpense}</CardTitle>
+              <CardTitle className="text-lg font-black uppercase tracking-widest">{t.addExpense}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.productName} / Description</Label>
-                <Input value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Rent, Electricity, Supplies..." className="bg-muted/30 border-border focus:border-primary/50" />
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">Description</Label>
+                <Input value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Rent, Electricity, Supplies..." className="bg-muted border-border font-bold h-12" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.amount}</Label>
-                  <Input type="number" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} placeholder="0.00" className="bg-muted/30 border-border focus:border-primary/50" />
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.amount}</Label>
+                  <Input type="number" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} placeholder="0.00" className="bg-muted border-border font-bold h-12" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t.category}</Label>
-                  <Input value={expenseCat} onChange={(e) => setExpenseCat(e.target.value)} placeholder="Operations..." className="bg-muted/30 border-border focus:border-primary/50" />
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.category}</Label>
+                  <Select value={expenseCat} onValueChange={setExpenseCat}>
+                    <SelectTrigger className="bg-muted border-border h-12">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Operations">Operations</SelectItem>
+                      <SelectItem value="Utilities">Utilities</SelectItem>
+                      <SelectItem value="Marketing">Marketing</SelectItem>
+                      <SelectItem value="Salaries">Salaries</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <Button onClick={handleSubmitExpense} className="w-full bg-primary text-primary-foreground font-bold py-6 hover:bg-primary/90">
-                <Plus className="mr-2" size={16} /> {t.submit}
+              <Button onClick={handleSubmitExpense} className="w-full bg-destructive text-destructive-foreground font-black py-8 rounded-2xl shadow-lg uppercase tracking-widest text-sm">
+                <Plus className="mr-2" size={18} /> {t.submit}
               </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="inventory">
-          <div className="grid gap-4">
-             <div className="flex items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl text-primary font-semibold text-sm">
-                <ShieldCheck size={18} />
-                <span>Real-time Stock Monitor Active & Secured</span>
+          <div className="grid gap-6">
+             <div className="flex items-center gap-3 p-6 bg-primary/5 border border-primary/20 rounded-3xl text-primary font-black uppercase tracking-widest text-[11px]">
+                <ShieldCheck size={20} />
+                <span>Neural Stock Matrix: Syncing Global Assets</span>
              </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map(i => (
-                  <Card key={i} className="glass-morphism border-border hover:border-primary/30 transition-all cursor-default group">
-                    <CardContent className="p-5 flex justify-between items-center">
-                      <div>
-                        <h4 className="font-bold text-foreground group-hover:text-primary transition-colors">Product Item #{i}</h4>
-                        <p className="text-xs text-muted-foreground font-medium">Category: Essentials</p>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products?.map((p: any) => (
+                  <Card key={p.id} className="glass-morphism border-border hover:border-primary transition-all group overflow-hidden">
+                    <CardContent className="p-8 flex justify-between items-center relative">
+                      <div className="absolute top-0 right-0 p-2 opacity-5">
+                        <Package size={80} />
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-primary">42 Units</p>
-                        <p className="text-[10px] text-primary/70 font-bold uppercase tracking-tighter">In Stock</p>
+                      <div className="relative z-10">
+                        <h4 className="font-black text-[14px] uppercase tracking-tighter group-hover:text-primary transition-colors">{p.name}</h4>
+                        <p className="text-[9px] text-muted-foreground font-black uppercase mt-1 tracking-widest">{p.category}</p>
+                      </div>
+                      <div className="text-right relative z-10">
+                        <p className="text-2xl font-black text-primary tracking-tighter">{p.stock}</p>
+                        <p className="text-[8px] text-primary/70 font-black uppercase tracking-widest">Available</p>
                       </div>
                     </CardContent>
                   </Card>
