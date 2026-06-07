@@ -23,11 +23,18 @@ import {
   Users,
   Key,
   Fingerprint,
-  LockKeyhole
+  LockKeyhole,
+  Chrome
 } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
-import { signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { 
+  signOut, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup
+} from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
@@ -86,6 +93,50 @@ export default function Home() {
         variant: "destructive",
         title: "Security Violation",
         description: error.message || "Invalid credentials or unauthorized attempt.",
+      });
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    if (!auth || !firestore) return;
+    setIsAuthenticating(true);
+    const provider = new GoogleAuthProvider();
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if profile exists
+      const docRef = doc(firestore, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        // First time login - provision with selected role
+        const profileData = {
+          uid: user.uid,
+          email: user.email,
+          role: authRole,
+          displayName: user.displayName || user.email?.split('@')[0],
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(docRef, profileData);
+        toast({
+          title: "Identity Provisioned",
+          description: `Google identity linked as ${authRole === 'admin' ? 'SUPER ADMIN' : 'SELLER'}.`,
+        });
+      } else {
+        toast({
+          title: "Authorization Success",
+          description: "Google credentials verified.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Google Auth Failed",
+        description: error.message || "Could not complete Google authentication.",
       });
     } finally {
       setIsAuthenticating(false);
@@ -171,38 +222,74 @@ export default function Home() {
               </div>
             </div>
 
-            {isSignUp && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2 bg-muted/20 p-5 rounded-2xl border border-border/50">
-                 <div className="flex items-center justify-between mb-2">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Fingerprint size={12} className="text-secondary" />
-                      Portal Access Level
-                    </Label>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'seller' ? 'text-secondary' : 'text-muted-foreground'}`}>Seller</span>
-                      <Switch 
-                        checked={authRole === "admin"} 
-                        onCheckedChange={(checked) => setAuthRole(checked ? "admin" : "seller")}
-                        className="data-[state=checked]:bg-secondary"
-                      />
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'admin' ? 'text-secondary' : 'text-muted-foreground'}`}>Admin</span>
-                    </div>
-                 </div>
-                 <div className={`p-2 rounded-xl border text-center transition-colors duration-300 ${authRole === 'admin' ? 'bg-secondary/10 border-secondary/20' : 'bg-muted/40 border-border'}`}>
-                   <p className={`text-[8px] font-black uppercase tracking-[0.2em] ${authRole === 'admin' ? 'text-secondary' : 'text-muted-foreground'}`}>
-                      {authRole === 'admin' ? 'SUPER ADMIN: OWNER COMMAND CENTER' : 'STANDARD POS: STAFF TERMINAL'}
-                   </p>
-                 </div>
-              </div>
-            )}
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 bg-muted/20 p-5 rounded-2xl border border-border/50">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Fingerprint size={12} className="text-secondary" />
+                    Portal Access Level
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'seller' ? 'text-secondary' : 'text-muted-foreground'}`}>Seller</span>
+                    <Switch 
+                      checked={authRole === "admin"} 
+                      onCheckedChange={(checked) => setAuthRole(checked ? "admin" : "seller")}
+                      className="data-[state=checked]:bg-secondary"
+                    />
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${authRole === 'admin' ? 'text-secondary' : 'text-muted-foreground'}`}>Admin</span>
+                  </div>
+                </div>
+                <div className={`p-2 rounded-xl border text-center transition-colors duration-300 ${authRole === 'admin' ? 'bg-secondary/10 border-secondary/20' : 'bg-muted/40 border-border'}`}>
+                  <p className={`text-[8px] font-black uppercase tracking-[0.2em] ${authRole === 'admin' ? 'text-secondary' : 'text-muted-foreground'}`}>
+                    {authRole === 'admin' ? 'SUPER ADMIN: OWNER COMMAND CENTER' : 'STANDARD POS: STAFF TERMINAL'}
+                  </p>
+                </div>
+            </div>
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-3">
               <Button 
                 type="submit" 
                 className={`w-full py-8 font-black rounded-2xl text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all ${isSignUp ? 'bg-secondary hover:bg-secondary/90' : 'bg-primary hover:bg-primary/90'} uppercase tracking-widest`} 
                 disabled={isAuthenticating}
               >
                 {isAuthenticating ? <Loader2 className="animate-spin" /> : (isSignUp ? "Provision Identity" : "Authorize Entry")}
+              </Button>
+
+              <div className="relative flex items-center py-2">
+                <div className="flex-grow border-t border-border"></div>
+                <span className="flex-shrink mx-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest">or continue with</span>
+                <div className="flex-grow border-t border-border"></div>
+              </div>
+
+              <Button 
+                type="button"
+                variant="outline"
+                onClick={handleGoogleAuth}
+                className="w-full py-8 font-black rounded-2xl text-sm border-border hover:bg-muted/50 transition-all uppercase tracking-widest flex items-center justify-center gap-3"
+                disabled={isAuthenticating}
+              >
+                {isAuthenticating ? <Loader2 className="animate-spin" /> : (
+                  <>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path
+                        fill="currentColor"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.27.81-.57z"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                      />
+                    </svg>
+                    Google Authentication
+                  </>
+                )}
               </Button>
             </div>
           </form>
