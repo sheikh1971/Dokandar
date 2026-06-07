@@ -7,12 +7,11 @@ import { OwnerDashboard } from "@/components/OwnerDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, ShoppingBag, Zap, LogOut, AlertCircle, Copy, Check, Mail, Lock } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Zap, LogOut, Mail, Lock, Loader2 } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 
 export default function Home() {
@@ -21,33 +20,11 @@ export default function Home() {
   const { user, loading: authLoading } = useUser();
   const { toast } = useToast();
   
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [hostname, setHostname] = useState<string>("");
-  const [copied, setCopied] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-  // Email login state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setHostname(window.location.hostname);
-    }
-  }, []);
-
-  const copyToClipboard = () => {
-    if (typeof navigator !== 'undefined') {
-      navigator.clipboard.writeText(hostname);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      toast({
-        title: "Domain Copied",
-        description: "Now paste it in Firebase Console -> Auth -> Settings -> Authorized Domains",
-      });
-    }
-  };
-
+  // Fetch profile from Firestore to identify the user's role
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, "users", user.uid);
@@ -55,14 +32,15 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
+  // Determine view based on role
+  // Default to 'seller' if no profile is found or if role is 'seller'
   const [view, setView] = useState<"seller" | "owner">("seller");
 
-  // Sync view with role from Firestore Profile
   useEffect(() => {
     if (profile?.role === "owner") {
       setView("owner");
     } else {
-      setView("seller"); // Default to seller if no doc exists or role is seller
+      setView("seller");
     }
   }, [profile]);
 
@@ -74,19 +52,15 @@ export default function Home() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
-        title: "Welcome Back",
-        description: `Login successful. Initializing system...`,
+        title: "Access Granted",
+        description: "Welcome back to DokanHishab.",
       });
     } catch (error: any) {
-      if (error.code === "auth/unauthorized-domain") {
-        setAuthError("unauthorized-domain");
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Access Denied",
-          description: "Invalid credentials. Accounts must be set up in the Firebase console."
-        });
-      }
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: "Invalid credentials. Please verify your email and password.",
+      });
     } finally {
       setIsAuthenticating(false);
     }
@@ -100,148 +74,123 @@ export default function Home() {
       await signInWithPopup(auth, provider);
       toast({
         title: "Signed In",
-        description: "Access granted.",
+        description: "Google Authentication successful.",
       });
     } catch (error: any) {
-      if (error.code === "auth/unauthorized-domain") {
-        setAuthError("unauthorized-domain");
-      } else if (error.code === "auth/popup-blocked") {
-        toast({
-          variant: "destructive",
-          title: "Popup Blocked",
-          description: "Please allow popups for this site.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Authentication Error",
-          description: error.message
-        });
-      }
+      toast({
+        variant: "destructive",
+        title: "Google Sign-In Error",
+        description: error.message,
+      });
     } finally {
       setIsAuthenticating(false);
     }
   };
 
   const handleLogout = () => {
-    if (auth) signOut(auth);
+    if (auth) {
+      signOut(auth);
+      toast({
+        title: "Signed Out",
+        description: "You have been successfully logged out.",
+      });
+    }
   };
 
+  // Show loading state during auth or profile fetching
   if (authLoading || (user && profileLoading) || isAuthenticating) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <Zap className="animate-pulse text-primary" size={48} />
-          <p className="text-muted-foreground font-medium">Verifying Credentials...</p>
+          <Loader2 className="animate-spin text-primary h-12 w-12" />
+          <p className="text-muted-foreground font-medium animate-pulse uppercase tracking-widest text-xs">Identifying Role...</p>
         </div>
       </div>
     );
   }
 
+  // Login Screen
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-        <div className="max-w-md w-full glass-morphism p-8 rounded-3xl space-y-6">
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
+        <div className="max-w-md w-full glass-morphism p-8 rounded-3xl space-y-8 border-t-4 border-primary">
+          <div className="text-center space-y-3">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform">
               <Zap className="text-primary-foreground fill-primary-foreground" size={32} />
             </div>
             <div className="space-y-1">
               <h1 className="font-headline text-3xl font-bold uppercase tracking-tighter">DOKAN<span className="text-primary">HISHAB</span></h1>
-              <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Smart Ledger System</p>
+              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Business Intelligence & POS</p>
             </div>
           </div>
 
           <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-xl font-bold text-foreground">Seller Portal</h2>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold mt-1 tracking-widest">Authorized Access Only</p>
-            </div>
-
-            {authError === "unauthorized-domain" && (
-              <Alert variant="destructive" className="bg-destructive/5 border-destructive/20">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle className="font-bold">Unauthorized Domain</AlertTitle>
-                <AlertDescription className="text-xs space-y-3">
-                  <p>Domain verification failed. Please add this domain to Firebase Console.</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-destructive/10 p-2 rounded font-mono text-[10px] break-all border border-destructive/20">
-                      {hostname}
-                    </div>
-                    <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={copyToClipboard}>
-                      {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="space-y-4">
-              <Button 
-                onClick={handleGoogleAuth} 
-                variant="outline" 
-                className="w-full py-7 flex items-center justify-center gap-3 border-border hover:bg-muted font-bold rounded-2xl transition-all"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                </svg>
-                Sign In with Google
-              </Button>
-
-              <div className="flex items-center gap-4 py-2">
-                <Separator className="flex-1" />
-                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">or email & password</span>
-                <Separator className="flex-1" />
+            <form onSubmit={handleEmailAuth} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Account Email</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="name@dokan.com" 
+                    className="pl-10 h-14 rounded-xl bg-muted/30 border-border focus:ring-primary focus:border-primary" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    required 
+                  />
+                </div>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Password</Label>
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    placeholder="••••••••" 
+                    className="pl-10 h-14 rounded-xl bg-muted/30 border-border focus:ring-primary focus:border-primary" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    required 
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full py-7 font-bold rounded-2xl text-lg shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all bg-primary hover:bg-primary/90">
+                Log In to Portal
+              </Button>
+            </form>
 
-              <form onSubmit={handleEmailAuth} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">User Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 text-muted-foreground" size={16} />
-                    <Input 
-                      id="email" 
-                      type="email" 
-                      placeholder="seller@dokan.com" 
-                      className="pl-10 h-12 rounded-xl" 
-                      value={email} 
-                      onChange={(e) => setEmail(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 text-muted-foreground" size={16} />
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      placeholder="••••••••" 
-                      className="pl-10 h-12 rounded-xl" 
-                      value={password} 
-                      onChange={(e) => setPassword(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                </div>
-                <Button type="submit" className="w-full py-7 font-bold rounded-2xl text-md shadow-md hover:scale-[1.01] transition-all">
-                  Login to Portal
-                </Button>
-                <p className="text-center text-[9px] text-muted-foreground mt-4 italic leading-relaxed">
-                  Role assignments are managed strictly via the Firebase backend.
-                </p>
-              </form>
+            <div className="flex items-center gap-4 py-2">
+              <Separator className="flex-1" />
+              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest px-2">OR</span>
+              <Separator className="flex-1" />
             </div>
+
+            <Button 
+              onClick={handleGoogleAuth} 
+              variant="outline" 
+              className="w-full py-7 flex items-center justify-center gap-3 border-border hover:bg-muted font-bold rounded-2xl transition-all shadow-sm"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+              </svg>
+              Sign In with Google
+            </Button>
+
+            <p className="text-center text-[9px] text-muted-foreground mt-4 italic leading-relaxed uppercase tracking-tighter">
+              Account roles are assigned manually in the backend by the administrator.
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
+  // Authenticated State (Role-Based Rendering)
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80">
@@ -266,7 +215,7 @@ export default function Home() {
                 }`}
               >
                 <ShoppingBag className="mr-2" size={14} />
-                বিক্রেতা
+                SELLER
               </Button>
               <Button
                 variant={view === "owner" ? "default" : "ghost"}
@@ -277,16 +226,17 @@ export default function Home() {
                 }`}
               >
                 <LayoutDashboard className="mr-2" size={14} />
-                মালিক
+                ADMIN
               </Button>
             </div>
           )}
 
           <div className="flex items-center gap-2">
             <div className="hidden md:flex flex-col items-end">
-              <span className="text-xs font-bold leading-none">{user.displayName || user.email}</span>
-              <span className="text-[10px] text-primary uppercase font-bold mt-0.5 tracking-widest">
-                {profile?.role === 'owner' ? 'Owner Account' : 'Seller Mode'}
+              <span className="text-xs font-bold leading-none">{profile?.displayName || user.displayName || user.email}</span>
+              <span className="text-[10px] text-primary uppercase font-extrabold mt-0.5 tracking-widest flex items-center gap-1">
+                <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'owner' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
+                {profile?.role === 'owner' ? 'Administrator' : 'Verified Seller'}
               </span>
             </div>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-destructive hover:bg-destructive/10">
