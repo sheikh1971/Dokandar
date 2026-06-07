@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -62,19 +63,27 @@ export default function Home() {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      const loggedUser = result.user;
 
-      const userRef = doc(firestore, "users", user.uid);
+      const userRef = doc(firestore, "users", loggedUser.uid);
       await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
+        uid: loggedUser.uid,
+        email: loggedUser.email,
+        displayName: loggedUser.displayName,
         role: "seller" // Default role for new users
       }, { merge: true });
 
     } catch (error: any) {
-      if (error.code === "auth/unauthorized-domain" || (error.message && error.message.includes("unauthorized-domain"))) {
+      console.error("Login Error:", error.code, error.message);
+      
+      if (error.code === "auth/unauthorized-domain") {
         setAuthError("unauthorized-domain");
+      } else if (error.code === "auth/popup-blocked") {
+        toast({
+          variant: "destructive",
+          title: "Popup Blocked",
+          description: "Please enable popups for this site in your browser settings (usually in the address bar)."
+        });
       } else {
         toast({
           variant: "destructive",
@@ -138,6 +147,10 @@ export default function Home() {
           <Button onClick={handleLogin} className="w-full py-6 text-lg font-bold rounded-2xl shadow-md transition-all active:scale-95" size="lg">
             <LogIn className="mr-2" /> Continue with Google
           </Button>
+          
+          <p className="text-[10px] text-muted-foreground">
+            If nothing happens, please check if your browser blocked the login popup.
+          </p>
         </div>
       </div>
     );
