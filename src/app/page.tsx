@@ -23,6 +23,7 @@ export default function Home() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [view, setView] = useState<"seller" | "admin" | null>(null);
 
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user) return null;
@@ -31,16 +32,16 @@ export default function Home() {
 
   const { data: profile, loading: profileLoading } = useDoc(userProfileQuery);
 
-  const [view, setView] = useState<"seller" | "admin">("seller");
-
-  // Robust redirection logic: Prioritize Admin Portal if role is 'admin'
+  // Enforced Redirection Logic: Ensures Super Admin sees the dashboard first
   useEffect(() => {
-    if (profile?.role === "admin") {
-      setView("admin");
-    } else {
-      setView("seller");
+    if (!profileLoading) {
+      if (profile?.role === "admin") {
+        setView("admin");
+      } else if (user) {
+        setView("seller");
+      }
     }
-  }, [profile]);
+  }, [profile, profileLoading, user]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,14 +51,14 @@ export default function Home() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
-        title: "Super Admin Identity Verified",
-        description: "Access granted to secure systems.",
+        title: "Access Authorized",
+        description: "Credentials verified successfully.",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Authorization Failed",
-        description: "Invalid credentials detected.",
+        description: "Invalid identity key or password.",
       });
     } finally {
       setIsAuthenticating(false);
@@ -88,6 +89,7 @@ export default function Home() {
   const handleLogout = () => {
     if (auth) {
       signOut(auth);
+      setView(null);
       toast({
         title: "Session Terminated",
         description: "Logged out securely.",
@@ -95,12 +97,12 @@ export default function Home() {
     }
   };
 
-  if (authLoading || (user && profileLoading) || isAuthenticating) {
+  if (authLoading || (user && (profileLoading || view === null)) || isAuthenticating) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-primary h-12 w-12" />
-          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Synchronizing Secure Data...</p>
+          <p className="text-muted-foreground font-black animate-pulse uppercase tracking-[0.3em] text-[10px]">Verifying Permissions & Loading Intel...</p>
         </div>
       </div>
     );
@@ -127,7 +129,7 @@ export default function Home() {
           <div className="space-y-6 relative z-10">
             <form onSubmit={handleEmailAuth} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Access Identity (Email)</Label>
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identity (Email)</Label>
                 <div className="relative group">
                   <Mail className="absolute left-4 top-4 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                   <Input 
@@ -183,7 +185,7 @@ export default function Home() {
 
             <div className="bg-muted/50 p-4 rounded-xl border border-border">
               <p className="text-center text-[8px] text-muted-foreground leading-relaxed uppercase font-black tracking-widest">
-                Super Admin permissions must be set manually in the Firebase console for specific UIDs.
+                Access is restricted to authorized identities managed in the Super Admin Console.
               </p>
             </div>
           </div>
