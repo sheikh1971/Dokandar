@@ -54,15 +54,15 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "User profile document. Only the user with a UID matching the document ID can read their own profile."
+      "description": "User profile document. Only the user with a UID matching the document ID can read their own profile. This document dictates if they see the Owner or Seller view."
     },
     "/sales/{saleId}": {
       "schema": "Sale",
-      "description": "Sales records. Any authenticated user can create a sale. Users with the 'owner' role can read all sales."
+      "description": "Sales records. Any authenticated user can create a sale. Only users whose UserProfile document has role 'owner' can read the full collection of sales."
     },
     "/expenses/{expenseId}": {
       "schema": "Expense",
-      "description": "Expense records. Any authenticated user can create an expense. Users with the 'owner' role can read all expenses."
+      "description": "Expense records. Any authenticated user can create an expense record. Only users whose UserProfile document has role 'owner' can read the full collection of expenses."
     }
   }
 }

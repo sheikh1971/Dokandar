@@ -7,7 +7,7 @@ import { OwnerDashboard } from "@/components/OwnerDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LayoutDashboard, ShoppingBag, Zap, LogOut, AlertCircle, Copy, Check, Mail, Lock, CheckCircle2 } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Zap, LogOut, AlertCircle, Copy, Check, Mail, Lock } from "lucide-react";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { signOut, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -57,11 +57,12 @@ export default function Home() {
 
   const [view, setView] = useState<"seller" | "owner">("seller");
 
+  // Sync view with role from Firestore
   useEffect(() => {
-    if (profile?.role) {
-      setView(profile.role as "seller" | "owner");
+    if (profile?.role === "owner") {
+      setView("owner");
     } else {
-      setView("seller"); // Default to seller if no profile exists
+      setView("seller"); // Default to seller if no doc exists or role is seller
     }
   }, [profile]);
 
@@ -74,7 +75,7 @@ export default function Home() {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: "Welcome",
-        description: `Logged in to Seller Portal`,
+        description: `Logged in successfully`,
       });
     } catch (error: any) {
       if (error.code === "auth/unauthorized-domain") {
@@ -83,7 +84,7 @@ export default function Home() {
         toast({
           variant: "destructive",
           title: "Authentication Error",
-          description: "Invalid email or password. Access is restricted to accounts created by the Admin."
+          description: "Invalid credentials. Access is restricted to accounts created by the Admin."
         });
       }
     } finally {
@@ -231,7 +232,7 @@ export default function Home() {
                   Sign In to System
                 </Button>
                 <p className="text-center text-[9px] text-muted-foreground mt-4 italic leading-relaxed">
-                  Accounts must be pre-authorized in the Firebase backend by the Admin.
+                  Accounts must be authorized in the Firebase backend by the Admin.
                 </p>
               </form>
             </div>
