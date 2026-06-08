@@ -63,7 +63,8 @@ import {
   XAxis, 
   YAxis, 
   Tooltip, 
-  CartesianGrid
+  CartesianGrid,
+  Legend
 } from "recharts";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { FirestorePermissionError } from "@/firebase/errors";
@@ -219,12 +220,32 @@ export function AdminDashboard() {
       })
       .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
 
-    const chartDataMap: Record<string, { name: string; sales: number; expenses: number }> = {};
+    const chartDataMap: Record<string, { name: string; sales: number; expenses: number; buy: number; overheads: number }> = {};
+    
     filteredSales.forEach(s => {
       const d = s.timestamp ? (s.timestamp as Timestamp).toDate() : new Date();
       const key = format(d, period === 'yearly' ? 'MMM' : 'dd MMM');
-      if (!chartDataMap[key]) chartDataMap[key] = { name: key, sales: 0, expenses: 0 };
+      if (!chartDataMap[key]) chartDataMap[key] = { name: key, sales: 0, expenses: 0, buy: 0, overheads: 0 };
       chartDataMap[key].sales += Number(s.total) || 0;
+    });
+
+    filteredExpenses.forEach(e => {
+      const d = e.timestamp ? (e.timestamp as Timestamp).toDate() : new Date();
+      const key = format(d, period === 'yearly' ? 'MMM' : 'dd MMM');
+      if (!chartDataMap[key]) chartDataMap[key] = { name: key, sales: 0, expenses: 0, buy: 0, overheads: 0 };
+      
+      const amt = Number(e.amount) || 0;
+      chartDataMap[key].expenses += amt;
+      
+      if (e.isOverhead) {
+        chartDataMap[key].overheads += amt;
+      }
+      
+      const cat = (e.category || "").toLowerCase();
+      const desc = (e.description || "").toLowerCase();
+      if (buyCategories.some(c => cat.includes(c) || desc.includes(c))) {
+        chartDataMap[key].buy += amt;
+      }
     });
 
     const chartData = Object.values(chartDataMap).sort((a, b) => a.name.localeCompare(b.name));
@@ -391,15 +412,24 @@ export function AdminDashboard() {
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2 glass-morphism border-t-4 border-primary">
-              <CardHeader><CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Financial Velocity</CardTitle></CardHeader>
-              <CardContent className="h-[350px] pt-4">
-                <ChartContainer config={{ sales: { label: "Sales", color: "hsl(var(--primary))" } }}>
+              <CardHeader><CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Business Scenario Analysis</CardTitle></CardHeader>
+              <CardContent className="h-[400px] pt-4">
+                <ChartContainer config={{ 
+                  sales: { label: "Revenue In (Sales)", color: "hsl(var(--primary))" },
+                  expenses: { label: "Total Outflow (Burn)", color: "hsl(var(--destructive))" },
+                  buy: { label: "Shopping / Procurement", color: "hsl(var(--secondary))" },
+                  overheads: { label: "Monthly Overheads", color: "hsl(var(--muted-foreground))" }
+                }}>
                   <BarChart data={stats.chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
                     <XAxis dataKey="name" fontSize={10} fontWeight="bold" axisLine={false} tickLine={false} />
                     <YAxis fontSize={10} fontWeight="bold" axisLine={false} tickLine={false} tickFormatter={(v) => `৳${v}`} />
                     <Tooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', paddingTop: '20px' }} />
+                    <Bar dataKey="sales" name="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expenses" name="Total Outflow" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="buy" name="Procurement" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="overheads" name="Overheads" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ChartContainer>
               </CardContent>
