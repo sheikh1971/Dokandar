@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { 
   TrendingUp, 
@@ -34,7 +34,8 @@ import {
   PlusCircle,
   Loader2,
   Building2,
-  Users
+  Users,
+  CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,9 +114,49 @@ export function AdminDashboard() {
   }, [firestore]);
 
   const { data: rawSales } = useCollection(salesQuery);
-  const { data: rawExpenses } = useCollection(expensesQuery);
+  const { data: rawExpenses, loading: expensesLoading } = useCollection(expensesQuery);
   const { data: products } = useCollection(productsQuery);
   const { data: accountLogs } = useCollection(accountLogsQuery);
+
+  // Autonomous Overheads Engine: Auto-add Rent/Salary if missing for the current month
+  useEffect(() => {
+    if (expensesLoading || !rawExpenses || !user || !firestore) return;
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Check if overheads already exist for this month
+    const hasOverheadsThisMonth = rawExpenses.some(e => {
+      const date = (e.timestamp as Timestamp)?.toDate();
+      return e.isOverhead && 
+             date && 
+             date.getMonth() === currentMonth && 
+             date.getFullYear() === currentYear;
+    });
+
+    if (!hasOverheadsThisMonth) {
+      const overheads = [
+        { description: "Fixed Overhead: Salary", amount: 11500, category: "Fixed Cost" },
+        { description: "Fixed Overhead: Rent", amount: 10500, category: "Fixed Cost" }
+      ];
+
+      overheads.forEach(item => {
+        const data = {
+          ...item,
+          timestamp: serverTimestamp(),
+          sellerId: user.uid,
+          isOverhead: true
+        };
+        addDoc(collection(firestore, "expenses"), data);
+      });
+
+      toast({
+        title: "Intelligence Protocol Active",
+        description: "Monthly Overheads (Rent & Salary) automatically synchronized."
+      });
+    }
+  }, [rawExpenses, expensesLoading, user, firestore, toast]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -230,32 +271,6 @@ export function AdminDashboard() {
         }));
       })
       .finally(() => setIsBuySubmitting(false));
-  };
-
-  const handleCommitOverheads = async () => {
-    if (!firestore || !user) return;
-    const overheads = [
-      { description: "Fixed Overhead: Salary", amount: 11500, category: "Fixed Cost" },
-      { description: "Fixed Overhead: Rent", amount: 10500, category: "Fixed Cost" }
-    ];
-
-    try {
-      for (const item of overheads) {
-        const data = {
-          ...item,
-          timestamp: serverTimestamp(),
-          sellerId: user.uid,
-          isOverhead: true
-        };
-        addDoc(collection(firestore, "expenses"), data);
-      }
-      toast({
-        title: "Overheads Synchronized",
-        description: "Salary and Rent have been recorded as expenses."
-      });
-    } catch (e) {
-      console.error(e);
-    }
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -577,14 +592,18 @@ export function AdminDashboard() {
                        <span className="text-sm font-black text-secondary">৳10,500</span>
                     </div>
                   </div>
-                  <div className="p-4 bg-secondary/10 rounded-xl border border-secondary/20 flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest">Total Monthly Commit</span>
-                    <span className="text-lg font-black text-secondary tracking-tighter">৳22,000</span>
+                  <div className="p-4 bg-secondary/10 rounded-xl border border-secondary/20 flex flex-col items-center justify-center gap-2">
+                    <div className="flex items-center gap-2 text-secondary">
+                      <CheckCircle2 size={16} className="animate-pulse" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Autonomous Engine Active</span>
+                    </div>
+                    <p className="text-lg font-black text-secondary tracking-tighter">৳22,000 Total Monthly</p>
                   </div>
-                  <Button onClick={handleCommitOverheads} className="w-full bg-secondary py-8 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all">
-                    Commit Monthly Overheads
-                  </Button>
-                  <p className="text-[8px] text-muted-foreground uppercase font-bold text-center italic">Logs Salary & Rent as expenses for the current month.</p>
+                  <div className="p-4 bg-muted/20 border border-border/50 rounded-xl text-center">
+                    <p className="text-[9px] text-muted-foreground uppercase font-bold leading-relaxed">
+                      System automatically checks and logs Rent/Salary on your first visit each month. No manual action required.
+                    </p>
+                  </div>
                 </CardContent>
              </Card>
 
