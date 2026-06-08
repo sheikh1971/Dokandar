@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -27,7 +26,9 @@ import {
   Eye,
   ArrowRight,
   ShoppingCart,
-  Banknote
+  Banknote,
+  Tags,
+  Coins
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,9 +121,19 @@ export function AdminDashboard() {
       return date && isAfter(date, filterDate);
     }) || [];
 
+    const filteredLogs = accountLogs?.filter(l => {
+      const date = (l.timestamp as Timestamp)?.toDate();
+      return date && isAfter(date, filterDate);
+    }) || [];
+
     const totalRevenue = filteredSales.reduce((acc, s) => acc + (s.total || 0), 0);
     const totalExpenses = filteredExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
     const netProfit = totalRevenue - totalExpenses;
+
+    const totalJoma = filteredLogs.reduce((acc, l) => acc + (l.joma || 0), 0);
+    const totalBuy = filteredExpenses
+      .filter(e => e.category?.toLowerCase() === 'buy' || e.category?.toLowerCase() === 'purchase')
+      .reduce((acc, e) => acc + (e.amount || 0), 0);
 
     const chartDataMap: Record<string, { name: string; sales: number; expenses: number }> = {};
     filteredSales.forEach(s => {
@@ -134,8 +145,18 @@ export function AdminDashboard() {
 
     const chartData = Object.values(chartDataMap).sort((a, b) => a.name.localeCompare(b.name));
 
-    return { totalRevenue, totalExpenses, netProfit, sales: filteredSales, expenses: filteredExpenses, chartData };
-  }, [rawSales, rawExpenses, period]);
+    return { 
+      totalRevenue, 
+      totalExpenses, 
+      netProfit, 
+      totalJoma, 
+      totalBuy,
+      sales: filteredSales, 
+      expenses: filteredExpenses, 
+      logs: filteredLogs,
+      chartData 
+    };
+  }, [rawSales, rawExpenses, accountLogs, period]);
 
   // Derived data for detail view
   const auditDetailData = useMemo(() => {
@@ -215,10 +236,11 @@ export function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-muted border border-border p-1 h-12 rounded-2xl grid grid-cols-4 w-full md:w-[800px]">
+        <TabsList className="bg-muted border border-border p-1 h-12 rounded-2xl grid grid-cols-5 w-full md:w-[950px]">
           <TabsTrigger value="overview" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Intelligence</TabsTrigger>
           <TabsTrigger value="inventory" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Inventory</TabsTrigger>
           <TabsTrigger value="history" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Transactions</TabsTrigger>
+          <TabsTrigger value="buy_joma" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Buy & Joma</TabsTrigger>
           <TabsTrigger value="closing" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Closing Ledger</TabsTrigger>
         </TabsList>
 
@@ -296,6 +318,78 @@ export function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="buy_joma" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="glass-morphism border-t-4 border-primary">
+              <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 py-4">
+                <div>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Joma (Deposits) Summary</CardTitle>
+                  <CardDescription className="text-[10px] font-bold uppercase mt-1">Total capital collected from sellers</CardDescription>
+                </div>
+                <Coins className="text-primary/30" size={24} />
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="text-center py-6 border-b border-border mb-6">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Aggregate Joma</p>
+                  <h3 className="text-4xl font-black text-primary tracking-tighter">৳{stats.totalJoma.toLocaleString()}</h3>
+                </div>
+                <div className="max-h-[400px] overflow-y-auto">
+                  {stats.logs.map((log: any) => (
+                    <div key={log.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-primary/5 transition-colors">
+                      <div>
+                        <p className="text-sm font-black uppercase">{log.sellerName}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{log.timestamp?.toDate()?.toLocaleString()}</p>
+                      </div>
+                      <span className="text-sm font-black text-primary">৳{log.joma?.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {(!stats.logs || stats.logs.length === 0) && (
+                    <div className="text-center py-12 opacity-30">
+                      <Coins size={40} className="mx-auto mb-2" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">No Joma entries found</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-morphism border-t-4 border-destructive">
+              <CardHeader className="flex flex-row items-center justify-between border-b bg-destructive/5 py-4">
+                <div>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest text-destructive">Buy (Purchases) Summary</CardTitle>
+                  <CardDescription className="text-[10px] font-bold uppercase mt-1">Capital spent on inventory and stock</CardDescription>
+                </div>
+                <Tags className="text-destructive/30" size={24} />
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="text-center py-6 border-b border-border mb-6">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Aggregate Purchases</p>
+                  <h3 className="text-4xl font-black text-destructive tracking-tighter">৳{stats.totalBuy.toLocaleString()}</h3>
+                </div>
+                <div className="max-h-[400px] overflow-y-auto">
+                  {stats.expenses
+                    .filter(e => e.category?.toLowerCase() === 'buy' || e.category?.toLowerCase() === 'purchase')
+                    .map((exp: any) => (
+                      <div key={exp.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-destructive/5 transition-colors">
+                        <div>
+                          <p className="text-sm font-black uppercase">{exp.description}</p>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase">{exp.timestamp?.toDate()?.toLocaleString()}</p>
+                        </div>
+                        <span className="text-sm font-black text-destructive">৳{exp.amount?.toLocaleString()}</span>
+                      </div>
+                  ))}
+                  {(!stats.expenses.filter(e => e.category?.toLowerCase() === 'buy' || e.category?.toLowerCase() === 'purchase').length) && (
+                    <div className="text-center py-12 opacity-30">
+                      <Tags size={40} className="mx-auto mb-2" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">No Buy records found</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="closing" className="space-y-6">
