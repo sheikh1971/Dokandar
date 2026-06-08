@@ -70,12 +70,14 @@ export function SellerPortal() {
   const [expenseAmount, setExpenseAmount] = useState("");
   const [expenseCat, setExpenseCat] = useState("Operations");
   const [expenseDate, setExpenseDate] = useState<Date>(new Date());
+  const [isExpenseDateOpen, setIsExpenseDateOpen] = useState(false);
 
   // Daily Account Audit State
   const [cashbox, setCashbox] = useState("");
   const [joma, setJoma] = useState("");
   const [due, setDue] = useState("");
   const [auditDate, setAuditDate] = useState<Date>(new Date());
+  const [isAuditDateOpen, setIsAuditDateOpen] = useState(false);
   const [isAccountSubmitting, setIsAccountSubmitting] = useState(false);
 
   // Detail view state
@@ -84,10 +86,13 @@ export function SellerPortal() {
   // Edit record state
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [editValue, setEditValue] = useState("");
+  const [editDate, setEditDate] = useState<Date>(new Date());
+  const [isEditDateOpen, setIsEditDateOpen] = useState(false);
 
   // Manual Past Entry State (Ledger tab)
   const [isPastEntryOpen, setIsPastEntryOpen] = useState(false);
   const [pastEntryDate, setPastEntryDate] = useState<Date>(new Date());
+  const [isPastEntryDateOpen, setIsPastEntryDateOpen] = useState(false);
   const [pastEntryType, setPastEntryType] = useState<"sale" | "expense">("sale");
   const [pastEntryAmount, setPastEntryAmount] = useState("");
   const [pastEntryDesc, setPastEntryDesc] = useState("");
@@ -137,20 +142,20 @@ export function SellerPortal() {
       return ts && isAfter(ts.toDate(), sevenDaysAgo);
     }).sort((a, b) => (b.timestamp as any)?.toDate() - (a.timestamp as any)?.toDate());
 
-    const todayTotal = recentSales.filter(s => {
+    const todayTotal = (sellerSales || []).filter(s => {
       const ts = s.timestamp as Timestamp;
       return ts && isAfter(ts.toDate(), today);
     }).reduce((acc, s) => acc + (s.total || 0), 0);
 
-    const weekRevenue = recentSales.reduce((acc, s) => acc + (s.total || 0), 0);
-    const weekExpenses = recentExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
-
     return {
       todayTotal,
-      todayCount: recentSales.filter(s => isAfter((s.timestamp as Timestamp).toDate(), today)).length,
-      weekRevenue,
-      weekExpenses,
-      netProfit: weekRevenue - weekExpenses,
+      todayCount: (sellerSales || []).filter(s => {
+        const ts = s.timestamp as Timestamp;
+        return ts && isAfter(ts.toDate(), today);
+      }).length,
+      weekRevenue: recentSales.reduce((acc, s) => acc + (s.total || 0), 0),
+      weekExpenses: recentExpenses.reduce((acc, e) => acc + (e.amount || 0), 0),
+      netProfit: recentSales.reduce((acc, s) => acc + (s.total || 0), 0) - recentExpenses.reduce((acc, e) => acc + (e.amount || 0), 0),
       recentSales,
       recentExpenses,
       recentAudits
@@ -404,7 +409,11 @@ export function SellerPortal() {
     const ref = doc(firestore, type, editingRecord.id);
     const val = parseFloat(editValue);
     
-    let updates: any = { updatedAt: serverTimestamp(), updatedBy: user.email };
+    let updates: any = { 
+      updatedAt: serverTimestamp(), 
+      updatedBy: user.email,
+      timestamp: Timestamp.fromDate(editDate)
+    };
     if (type === "sales") updates.total = val;
     else if (type === "expenses") updates.amount = val;
     else if (type === "account_logs") {
@@ -576,7 +585,7 @@ export function SellerPortal() {
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.selectDate}</Label>
-                  <Popover>
+                  <Popover open={isExpenseDateOpen} onOpenChange={setIsExpenseDateOpen}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl bg-muted/30 border-border">
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -584,7 +593,7 @@ export function SellerPortal() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={expenseDate} onSelect={(d) => d && setExpenseDate(d)} initialFocus />
+                      <Calendar mode="single" selected={expenseDate} onSelect={(d) => { if (d) { setExpenseDate(d); setIsExpenseDateOpen(false); } }} initialFocus />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -620,7 +629,7 @@ export function SellerPortal() {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.selectDate}</Label>
-                  <Popover>
+                  <Popover open={isAuditDateOpen} onOpenChange={setIsAuditDateOpen}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl bg-muted/30 border-border">
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -628,7 +637,7 @@ export function SellerPortal() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={auditDate} onSelect={(d) => d && setAuditDate(d)} initialFocus />
+                      <Calendar mode="single" selected={auditDate} onSelect={(d) => { if (d) { setAuditDate(d); setIsAuditDateOpen(false); } }} initialFocus />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -733,7 +742,17 @@ export function SellerPortal() {
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground">Original Transaction Date</Label>
-                        <Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl"><CalendarIcon className="mr-2 h-4 w-4" /> {pastEntryDate ? format(pastEntryDate, "PPP") : <span>Select date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={pastEntryDate} onSelect={(d) => d && setPastEntryDate(d)} initialFocus /></PopoverContent></Popover>
+                        <Popover open={isPastEntryDateOpen} onOpenChange={setIsPastEntryDateOpen}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl">
+                              <CalendarIcon className="mr-2 h-4 w-4" /> 
+                              {pastEntryDate ? format(pastEntryDate, "PPP") : <span>Select date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={pastEntryDate} onSelect={(d) => { if (d) { setPastEntryDate(d); setIsPastEntryDateOpen(false); } }} initialFocus />
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -811,7 +830,8 @@ export function SellerPortal() {
                         <div className="flex gap-2 justify-end">
                           <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-secondary hover:bg-secondary/10 rounded-lg px-3" onClick={() => { 
                             setEditingRecord(record); 
-                            setEditValue((record.total || record.amount || record.cashbox).toString()); 
+                            setEditValue((record.total || record.amount || record.cashbox).toString());
+                            setEditDate(record.timestamp?.toDate() || new Date());
                           }}>Edit</Button>
                           <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 rounded-lg px-3" onClick={() => handleDeleteRecord(record.type, record.id)}>Delete</Button>
                         </div>
@@ -894,7 +914,21 @@ export function SellerPortal() {
       <Dialog open={!!editingRecord} onOpenChange={() => setEditingRecord(null)}>
         <DialogContent className="glass-morphism border-t-4 border-secondary">
           <DialogHeader><DialogTitle className="text-sm font-black uppercase tracking-widest">Adjust Verified Entry</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-4">
+          <div className="py-4 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground">Adjust Entry Date</Label>
+              <Popover open={isEditDateOpen} onOpenChange={setIsEditDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl bg-muted/30 border-border">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editDate ? format(editDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={editDate} onSelect={(d) => { if (d) { setEditDate(d); setIsEditDateOpen(false); } }} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-muted-foreground">
                 {editingRecord?.type === 'audit' ? 'Rectified Cashbox Amount (৳)' : 'New Rectified Amount (৳)'}
