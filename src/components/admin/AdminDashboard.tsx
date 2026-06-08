@@ -131,8 +131,13 @@ export function AdminDashboard() {
     const netProfit = totalRevenue - totalExpenses;
 
     const totalJoma = filteredLogs.reduce((acc, l) => acc + (l.joma || 0), 0);
+    
+    // Improved "Buy" logic to include various shopping categories
     const totalBuy = filteredExpenses
-      .filter(e => e.category?.toLowerCase() === 'buy' || e.category?.toLowerCase() === 'purchase')
+      .filter(e => {
+        const cat = (e.category || "").toLowerCase();
+        return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock';
+      })
       .reduce((acc, e) => acc + (e.amount || 0), 0);
 
     const chartDataMap: Record<string, { name: string; sales: number; expenses: number }> = {};
@@ -322,7 +327,7 @@ export function AdminDashboard() {
 
         <TabsContent value="buy_joma" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="glass-morphism border-t-4 border-primary">
+            <Card className="glass-morphism border-t-4 border-primary shadow-xl">
               <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 py-4">
                 <div>
                   <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Joma (Deposits) Summary</CardTitle>
@@ -332,58 +337,80 @@ export function AdminDashboard() {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="text-center py-6 border-b border-border mb-6">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Aggregate Joma</p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Aggregate Joma Inflow</p>
                   <h3 className="text-4xl font-black text-primary tracking-tighter">৳{stats.totalJoma.toLocaleString()}</h3>
                 </div>
-                <div className="max-h-[400px] overflow-y-auto">
+                <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
                   {stats.logs.map((log: any) => (
-                    <div key={log.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-primary/5 transition-colors">
-                      <div>
-                        <p className="text-sm font-black uppercase">{log.sellerName}</p>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{log.timestamp?.toDate()?.toLocaleString()}</p>
+                    <div key={log.id} className="flex justify-between items-center p-4 rounded-xl border border-border/30 hover:bg-primary/5 transition-all group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                          <Clock size={16} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-tight">{log.sellerName}</p>
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase">{log.timestamp?.toDate()?.toLocaleString()}</p>
+                        </div>
                       </div>
-                      <span className="text-sm font-black text-primary">৳{log.joma?.toLocaleString()}</span>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-primary">৳{log.joma?.toLocaleString()}</p>
+                        <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Verified</p>
+                      </div>
                     </div>
                   ))}
                   {(!stats.logs || stats.logs.length === 0) && (
                     <div className="text-center py-12 opacity-30">
                       <Coins size={40} className="mx-auto mb-2" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">No Joma entries found</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest">No Joma entries detected</p>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="glass-morphism border-t-4 border-destructive">
+            <Card className="glass-morphism border-t-4 border-destructive shadow-xl">
               <CardHeader className="flex flex-row items-center justify-between border-b bg-destructive/5 py-4">
                 <div>
                   <CardTitle className="text-sm font-black uppercase tracking-widest text-destructive">Buy (Purchases) Summary</CardTitle>
-                  <CardDescription className="text-[10px] font-bold uppercase mt-1">Capital spent on inventory and stock</CardDescription>
+                  <CardDescription className="text-[10px] font-bold uppercase mt-1">Capital spent on inventory and shop shopping</CardDescription>
                 </div>
                 <Tags className="text-destructive/30" size={24} />
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="text-center py-6 border-b border-border mb-6">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Aggregate Purchases</p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Aggregate Shopping Value</p>
                   <h3 className="text-4xl font-black text-destructive tracking-tighter">৳{stats.totalBuy.toLocaleString()}</h3>
                 </div>
-                <div className="max-h-[400px] overflow-y-auto">
+                <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
                   {stats.expenses
-                    .filter(e => e.category?.toLowerCase() === 'buy' || e.category?.toLowerCase() === 'purchase')
+                    .filter(e => {
+                      const cat = (e.category || "").toLowerCase();
+                      return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock';
+                    })
                     .map((exp: any) => (
-                      <div key={exp.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-destructive/5 transition-colors">
-                        <div>
-                          <p className="text-sm font-black uppercase">{exp.description}</p>
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase">{exp.timestamp?.toDate()?.toLocaleString()}</p>
+                      <div key={exp.id} className="flex justify-between items-center p-4 rounded-xl border border-border/30 hover:bg-destructive/5 transition-all group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center group-hover:bg-destructive group-hover:text-destructive-foreground transition-colors">
+                            <Clock size={16} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-tight">{exp.description}</p>
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase">{exp.timestamp?.toDate()?.toLocaleString()}</p>
+                          </div>
                         </div>
-                        <span className="text-sm font-black text-destructive">৳{exp.amount?.toLocaleString()}</span>
+                        <div className="text-right">
+                          <p className="text-sm font-black text-destructive">৳{exp.amount?.toLocaleString()}</p>
+                          <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Burned</p>
+                        </div>
                       </div>
                   ))}
-                  {(!stats.expenses.filter(e => e.category?.toLowerCase() === 'buy' || e.category?.toLowerCase() === 'purchase').length) && (
+                  {(!stats.expenses.filter(e => {
+                    const cat = (e.category || "").toLowerCase();
+                    return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock';
+                  }).length) && (
                     <div className="text-center py-12 opacity-30">
                       <Tags size={40} className="mx-auto mb-2" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">No Buy records found</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest">No Buy/Shopping records detected</p>
                     </div>
                   )}
                 </div>
