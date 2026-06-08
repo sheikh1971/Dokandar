@@ -61,8 +61,19 @@
         "description": { "type": "string" },
         "sellerId": { "type": "string" },
         "updatedAt": { "type": "string", "format": "date-time" },
-        "updatedBy": { "type": "string" }
+        "updatedBy": { "type": "string" },
+        "isOverhead": { "type": "boolean" }
       }
+    },
+    "OverheadConfig": {
+      "title": "Overhead Configuration",
+      "description": "Defines fixed monthly costs that should be auto-logged.",
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" },
+        "amount": { "type": "number" }
+      },
+      "required": ["label", "amount"]
     },
     "AccountLog": {
       "title": "Daily Account Log",
@@ -101,6 +112,10 @@
     "/account_logs/{logId}": {
       "schema": "AccountLog",
       "description": "Daily account summaries. Sellers can create their own. Admins can view all."
+    },
+    "/overhead_configs/{configId}": {
+      "schema": "OverheadConfig",
+      "description": "Configurable fixed overheads for auto-logging."
     }
   }
 }

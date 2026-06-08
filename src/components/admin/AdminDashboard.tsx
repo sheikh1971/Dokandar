@@ -36,7 +36,8 @@ import {
   Building2,
   Users,
   CheckCircle2,
-  Search
+  Search,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +82,10 @@ export function AdminDashboard() {
   const [newProductPrice, setNewProductPrice] = useState("");
   const [newProductCategory, setNewProductCategory] = useState("Essentials");
 
+  // Overhead Config State
+  const [newOverheadLabel, setNewOverheadLabel] = useState("");
+  const [newOverheadAmount, setNewOverheadAmount] = useState("");
+
   // Buy Entry State
   const [buyDesc, setBuyDesc] = useState("");
   const [buyAmount, setBuyAmount] = useState("");
@@ -118,61 +123,57 @@ export function AdminDashboard() {
     return query(collection(firestore, "account_logs"), orderBy("timestamp", "desc"));
   }, [firestore]);
 
+  const overheadConfigsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "overhead_configs"), orderBy("label", "asc"));
+  }, [firestore]);
+
   const { data: rawSales } = useCollection(salesQuery);
   const { data: rawExpenses, loading: expensesLoading } = useCollection(expensesQuery);
   const { data: products } = useCollection(productsQuery);
   const { data: accountLogs } = useCollection(accountLogsQuery);
+  const { data: overheadConfigs, loading: configsLoading } = useCollection(overheadConfigsQuery);
 
-  // Autonomous Overheads Engine: Auto-add Rent/Salary if missing for the current month
+  // Autonomous Overheads Engine: Auto-add based on dynamic config
   useEffect(() => {
-    if (expensesLoading || !rawExpenses || !firestore || hasCheckedOverheads) return;
+    if (expensesLoading || configsLoading || !rawExpenses || !overheadConfigs || !firestore || hasCheckedOverheads) return;
 
     const syncOverheads = async () => {
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
 
-      // Robust check: Filter local results first
-      const existingOverheads = rawExpenses.filter(e => {
-        let date: Date | null = null;
-        if (e.timestamp instanceof Timestamp) date = e.timestamp.toDate();
-        else if (e.timestamp instanceof Date) date = e.timestamp;
-        
-        return (e.isOverhead === true || e.category === "Fixed Cost") && 
-               date && 
-               date.getMonth() === currentMonth && 
-               date.getFullYear() === currentYear;
-      });
+      setHasCheckedOverheads(true);
 
-      if (existingOverheads.length === 0) {
-        setHasCheckedOverheads(true);
-        
-        const overheads = [
-          { description: "Fixed Overhead: Salary", amount: 11500, category: "Fixed Cost" },
-          { description: "Fixed Overhead: Rent", amount: 10500, category: "Fixed Cost" }
-        ];
+      for (const config of overheadConfigs) {
+        const existing = rawExpenses.find(e => {
+          let date: Date | null = null;
+          if (e.timestamp instanceof Timestamp) date = e.timestamp.toDate();
+          else if (e.timestamp instanceof Date) date = e.timestamp;
+          
+          return e.configId === config.id && 
+                 date && 
+                 date.getMonth() === currentMonth && 
+                 date.getFullYear() === currentYear;
+        });
 
-        for (const item of overheads) {
+        if (!existing) {
           const data = {
-            ...item,
+            description: `Fixed Overhead: ${config.label}`,
+            amount: Number(config.amount),
+            category: "Fixed Cost",
             timestamp: serverTimestamp(),
             isOverhead: true,
-            addedAutomatically: true
+            addedAutomatically: true,
+            configId: config.id
           };
           addDoc(collection(firestore, "expenses"), data);
         }
-
-        toast({
-          title: "Overheads Provisioned",
-          description: "Monthly fixed costs (Salary & Rent) have been synchronized."
-        });
-      } else {
-        setHasCheckedOverheads(true);
       }
     };
 
     syncOverheads();
-  }, [rawExpenses, expensesLoading, firestore, toast, hasCheckedOverheads]);
+  }, [rawExpenses, expensesLoading, overheadConfigs, configsLoading, firestore, hasCheckedOverheads]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -268,6 +269,20 @@ export function AdminDashboard() {
       });
   };
 
+  const handleAddOverheadConfig = () => {
+    if (!firestore || !newOverheadLabel || !newOverheadAmount) return;
+    const configData = { label: newOverheadLabel, amount: parseFloat(newOverheadAmount) };
+    addDoc(collection(firestore, "overhead_configs"), configData)
+      .then(() => {
+        setNewOverheadLabel("");
+        setNewOverheadAmount("");
+        toast({ title: "Overhead Added", description: `${configData.label} is now part of the monthly engine.` });
+      })
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({ path: "overhead_configs", operation: "create", requestResourceData: configData }));
+      });
+  };
+
   const handleAddBuyRecord = async () => {
     if (!firestore || !buyAmount || !buyDesc) return;
     setIsBuySubmitting(true);
@@ -298,6 +313,15 @@ export function AdminDashboard() {
     deleteDoc(doc(firestore, "products", id))
       .catch(async () => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({ path: `products/${id}`, operation: "delete" }));
+      });
+  };
+
+  const handleDeleteOverheadConfig = (id: string) => {
+    if (!firestore) return;
+    deleteDoc(doc(firestore, "overhead_configs", id))
+      .then(() => toast({ title: "Overhead Config Removed" }))
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({ path: `overhead_configs/${id}`, operation: "delete" }));
       });
   };
 
@@ -641,32 +665,62 @@ export function AdminDashboard() {
              <Card className="glass-morphism border-t-4 border-secondary shadow-xl h-full">
                 <CardHeader className="flex flex-row items-center justify-between border-b bg-secondary/5 py-4">
                   <div>
-                    <CardTitle className="text-sm font-black uppercase tracking-widest text-secondary">Fixed Overheads</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase mt-1">Standard Monthly Business Costs</CardDescription>
+                    <CardTitle className="text-sm font-black uppercase tracking-widest text-secondary">Overhead Configurations</CardTitle>
+                    <CardDescription className="text-[10px] font-bold uppercase mt-1">Manage dynamic monthly fixed costs</CardDescription>
                   </div>
-                  <Building2 className="text-secondary/30" size={24} />
+                  <Settings className="text-secondary/30" size={24} />
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-4 bg-muted/30 rounded-xl border border-border">
-                       <span className="text-xs font-black uppercase tracking-widest">Monthly Salary</span>
-                       <span className="text-sm font-black text-secondary">৳11,500</span>
+                  <div className="bg-secondary/5 p-4 rounded-xl border border-secondary/10 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <PlusCircle className="text-secondary" size={14} />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-secondary">Add New Overhead</span>
                     </div>
-                    <div className="flex justify-between items-center p-4 bg-muted/30 rounded-xl border border-border">
-                       <span className="text-xs font-black uppercase tracking-widest">Monthly Rent</span>
-                       <span className="text-sm font-black text-secondary">৳10,500</span>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-black uppercase text-muted-foreground">Label</Label>
+                        <Input value={newOverheadLabel} onChange={(e) => setNewOverheadLabel(e.target.value)} placeholder="e.g. Electricity Bill" className="h-10 rounded-xl bg-white/50 font-black text-[10px]" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[8px] font-black uppercase text-muted-foreground">Monthly Amount (৳)</Label>
+                        <div className="flex gap-2">
+                          <Input type="number" value={newOverheadAmount} onChange={(e) => setNewOverheadAmount(e.target.value)} placeholder="0.00" className="h-10 rounded-xl bg-white/50 font-black text-[10px] flex-1" />
+                          <Button onClick={handleAddOverheadConfig} className="bg-secondary h-10 font-black uppercase text-[10px] px-6 rounded-xl">Add</Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Active Overheads</p>
+                    {overheadConfigs?.map((config: any) => (
+                      <div key={config.id} className="flex justify-between items-center p-4 bg-muted/30 rounded-xl border border-border group">
+                         <div>
+                            <span className="text-xs font-black uppercase tracking-widest">{config.label}</span>
+                            <p className="text-[8px] font-bold text-muted-foreground uppercase">Autonomous Fixed Cost</p>
+                         </div>
+                         <div className="flex items-center gap-4">
+                            <span className="text-sm font-black text-secondary">৳{Number(config.amount).toLocaleString()}</span>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteOverheadConfig(config.id)} className="text-destructive h-8 w-8 opacity-0 group-hover:opacity-100 transition-all">
+                              <Trash2 size={14} />
+                            </Button>
+                         </div>
+                      </div>
+                    ))}
+                  </div>
+
                   <div className="p-4 bg-secondary/10 rounded-xl border border-secondary/20 flex flex-col items-center justify-center gap-2">
                     <div className="flex items-center gap-2 text-secondary">
                       <CheckCircle2 size={16} className="animate-pulse" />
                       <span className="text-[10px] font-black uppercase tracking-widest">Autonomous Engine Active</span>
                     </div>
-                    <p className="text-lg font-black text-secondary tracking-tighter">৳22,000 Total Monthly</p>
+                    <p className="text-lg font-black text-secondary tracking-tighter">
+                      ৳{overheadConfigs?.reduce((acc: number, c: any) => acc + (Number(c.amount) || 0), 0).toLocaleString()} Total Monthly
+                    </p>
                   </div>
                   <div className="p-4 bg-muted/20 border border-border/50 rounded-xl text-center">
                     <p className="text-[9px] text-muted-foreground uppercase font-bold leading-relaxed">
-                      System automatically checks and logs Rent/Salary on your first visit each month. No manual action required.
+                      System automatically logs active overheads for the current month upon your first visit. Updates take effect immediately.
                     </p>
                   </div>
                 </CardContent>
