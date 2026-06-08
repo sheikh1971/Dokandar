@@ -23,7 +23,11 @@ import {
   Wallet,
   ArrowDownCircle,
   ArrowUpCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  Eye,
+  ArrowRight,
+  ShoppingCart,
+  Banknote
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,10 +40,11 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
 import { useFirestore, useCollection, useUser } from "@/firebase";
 import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
-import { startOfWeek, startOfMonth, startOfYear, isAfter, format } from "date-fns";
+import { startOfWeek, startOfMonth, startOfYear, isAfter, format, isSameDay } from "date-fns";
 import { 
   Bar, 
   BarChart, 
@@ -62,6 +67,9 @@ export function AdminDashboard() {
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
   const [newProductCategory, setNewProductCategory] = useState("Essentials");
+
+  // Detail view state
+  const [viewingAudit, setViewingAudit] = useState<any>(null);
 
   const { firestore } = useFirestore();
   const { user } = useUser();
@@ -128,6 +136,24 @@ export function AdminDashboard() {
 
     return { totalRevenue, totalExpenses, netProfit, sales: filteredSales, expenses: filteredExpenses, chartData };
   }, [rawSales, rawExpenses, period]);
+
+  // Derived data for detail view
+  const auditDetailData = useMemo(() => {
+    if (!viewingAudit || !rawSales || !rawExpenses) return { sales: [], expenses: [] };
+    const date = (viewingAudit.timestamp as Timestamp).toDate();
+    
+    const sales = (rawSales || []).filter(s => {
+      const ts = s.timestamp as Timestamp;
+      return ts && isSameDay(ts.toDate(), date);
+    });
+
+    const expenses = (rawExpenses || []).filter(e => {
+      const ts = e.timestamp as Timestamp;
+      return ts && isSameDay(ts.toDate(), date);
+    });
+
+    return { sales, expenses };
+  }, [viewingAudit, rawSales, rawExpenses]);
 
   const handleAddProduct = () => {
     if (!firestore || !newProductName || !newProductPrice) return;
@@ -284,7 +310,14 @@ export function AdminDashboard() {
             <CardContent className="p-0">
               <div className="max-h-[600px] overflow-y-auto">
                 {accountLogs?.map((log: any) => (
-                  <div key={log.id} className="p-6 border-b border-border/30 hover:bg-secondary/5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div 
+                    key={log.id} 
+                    onClick={() => setViewingAudit(log)}
+                    className="p-6 border-b border-border/30 hover:bg-secondary/5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer group relative overflow-hidden"
+                  >
+                    <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Eye size={16} className="text-secondary" />
+                    </div>
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center"><Wallet className="text-secondary" size={20} /></div>
                       <div>
@@ -321,6 +354,74 @@ export function AdminDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Audit Detail Dialog */}
+      <Dialog open={!!viewingAudit} onOpenChange={() => setViewingAudit(null)}>
+        <DialogContent className="glass-morphism border-t-4 border-secondary max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <ClipboardCheck className="text-secondary" />
+              Audit Forensic Detail: {viewingAudit && format((viewingAudit.timestamp as Timestamp).toDate(), "PPP")}
+            </DialogTitle>
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Reported by: {viewingAudit?.sellerName}</p>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 border-b border-primary/20 pb-2">
+                <ShoppingCart size={14} /> Total Sales Volume
+              </h4>
+              <div className="space-y-2">
+                {auditDetailData.sales.map((sale: any) => (
+                  <div key={sale.id} className="p-3 bg-muted/30 rounded-xl border border-border flex justify-between items-center group hover:bg-primary/5 hover:border-primary/20 transition-all">
+                    <div>
+                      <p className="text-[10px] font-black uppercase">Order #{sale.id.slice(-4).toUpperCase()}</p>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase">{format((sale.timestamp as Timestamp).toDate(), "hh:mm a")}</p>
+                    </div>
+                    <p className="text-xs font-black text-primary">৳{(sale.total || 0).toLocaleString()}</p>
+                  </div>
+                ))}
+                {!auditDetailData.sales.length && <p className="text-[9px] text-muted-foreground italic uppercase text-center py-6">No sales recorded.</p>}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-destructive flex items-center gap-2 border-b border-destructive/20 pb-2">
+                <Banknote size={14} /> Operational Burn
+              </h4>
+              <div className="space-y-2">
+                {auditDetailData.expenses.map((exp: any) => (
+                  <div key={exp.id} className="p-3 bg-muted/30 rounded-xl border border-border flex justify-between items-center group hover:bg-destructive/5 hover:border-destructive/20 transition-all">
+                    <div>
+                      <p className="text-[10px] font-black uppercase">{exp.description}</p>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase">{exp.category}</p>
+                    </div>
+                    <p className="text-xs font-black text-destructive">৳{(exp.amount || 0).toLocaleString()}</p>
+                  </div>
+                ))}
+                {!auditDetailData.expenses.length && <p className="text-[9px] text-muted-foreground italic uppercase text-center py-6">No expenses recorded.</p>}
+              </div>
+            </div>
+          </div>
+          <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-xl flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+                <Wallet className="text-secondary" size={18} />
+              </div>
+              <div>
+                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Seller Reported Cash</p>
+                <p className="text-lg font-black text-secondary tracking-tighter">৳{viewingAudit?.cashbox?.toLocaleString()}</p>
+              </div>
+            </div>
+            <ArrowRight className="text-secondary/30" />
+            <div className="text-right">
+              <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">System Net Balance</p>
+              <p className="text-lg font-black text-foreground tracking-tighter">
+                ৳{(auditDetailData.sales.reduce((a, b) => a + (b.total || 0), 0) - auditDetailData.expenses.reduce((a, b) => a + (b.amount || 0), 0)).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
