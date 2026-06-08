@@ -89,6 +89,9 @@ export function AdminDashboard() {
 
   // Detail view state
   const [viewingAudit, setViewingAudit] = useState<any>(null);
+  
+  // Guard to prevent multiple overhead additions in one session
+  const [hasCheckedOverheads, setHasCheckedOverheads] = useState(false);
 
   const { firestore } = useFirestore();
   const { user } = useUser();
@@ -120,7 +123,7 @@ export function AdminDashboard() {
 
   // Autonomous Overheads Engine: Auto-add Rent/Salary if missing for the current month
   useEffect(() => {
-    if (expensesLoading || !rawExpenses || !user || !firestore) return;
+    if (expensesLoading || !rawExpenses || !user || !firestore || hasCheckedOverheads) return;
 
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -128,7 +131,10 @@ export function AdminDashboard() {
 
     // Check if overheads already exist for this month
     const hasOverheadsThisMonth = rawExpenses.some(e => {
-      const date = (e.timestamp as Timestamp)?.toDate();
+      let date: Date | null = null;
+      if (e.timestamp instanceof Timestamp) date = e.timestamp.toDate();
+      else if (e.timestamp instanceof Date) date = e.timestamp;
+      
       return e.isOverhead && 
              date && 
              date.getMonth() === currentMonth && 
@@ -136,6 +142,9 @@ export function AdminDashboard() {
     });
 
     if (!hasOverheadsThisMonth) {
+      // Set to true immediately to avoid race conditions with multiple async triggers
+      setHasCheckedOverheads(true);
+      
       const overheads = [
         { description: "Fixed Overhead: Salary", amount: 11500, category: "Fixed Cost" },
         { description: "Fixed Overhead: Rent", amount: 10500, category: "Fixed Cost" }
@@ -153,10 +162,12 @@ export function AdminDashboard() {
 
       toast({
         title: "Intelligence Protocol Active",
-        description: "Monthly Overheads (Rent & Salary) automatically synchronized."
+        description: "Monthly Overheads synchronized."
       });
+    } else {
+      setHasCheckedOverheads(true);
     }
-  }, [rawExpenses, expensesLoading, user, firestore, toast]);
+  }, [rawExpenses, expensesLoading, user, firestore, toast, hasCheckedOverheads]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -169,40 +180,43 @@ export function AdminDashboard() {
       default: filterDate = new Date(0);
     }
 
-    const filteredSales = rawSales?.filter(s => {
-      const date = (s.timestamp as Timestamp)?.toDate();
-      return date && isAfter(date, filterDate);
-    }) || [];
+    const filteredSales = (rawSales || []).filter(s => {
+      if (!s.timestamp) return true; // Include pending writes
+      const date = (s.timestamp as Timestamp).toDate();
+      return isAfter(date, filterDate);
+    });
 
-    const filteredExpenses = rawExpenses?.filter(e => {
-      const date = (e.timestamp as Timestamp)?.toDate();
-      return date && isAfter(date, filterDate);
-    }) || [];
+    const filteredExpenses = (rawExpenses || []).filter(e => {
+      if (!e.timestamp) return true; // Include pending writes
+      const date = (e.timestamp as Timestamp).toDate();
+      return isAfter(date, filterDate);
+    });
 
-    const filteredLogs = accountLogs?.filter(l => {
-      const date = (l.timestamp as Timestamp)?.toDate();
-      return date && isAfter(date, filterDate);
-    }) || [];
+    const filteredLogs = (accountLogs || []).filter(l => {
+      if (!l.timestamp) return true; // Include pending writes
+      const date = (l.timestamp as Timestamp).toDate();
+      return isAfter(date, filterDate);
+    });
 
-    const totalRevenue = filteredSales.reduce((acc, s) => acc + (s.total || 0), 0);
-    const totalExpenses = filteredExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
+    const totalRevenue = filteredSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+    const totalExpenses = filteredExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
     const netProfit = totalRevenue - totalExpenses;
 
-    const totalJoma = filteredLogs.reduce((acc, l) => acc + (l.joma || 0), 0);
+    const totalJoma = filteredLogs.reduce((acc, l) => acc + (Number(l.joma) || 0), 0);
     
     const totalBuy = filteredExpenses
       .filter(e => {
         const cat = (e.category || "").toLowerCase();
         return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock' || cat === 'procurement';
       })
-      .reduce((acc, e) => acc + (e.amount || 0), 0);
+      .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
 
     const chartDataMap: Record<string, { name: string; sales: number; expenses: number }> = {};
     filteredSales.forEach(s => {
-      const d = (s.timestamp as Timestamp)?.toDate();
-      const key = d ? format(d, period === 'yearly' ? 'MMM' : 'dd MMM') : 'Unknown';
+      const d = s.timestamp ? (s.timestamp as Timestamp).toDate() : new Date();
+      const key = format(d, period === 'yearly' ? 'MMM' : 'dd MMM');
       if (!chartDataMap[key]) chartDataMap[key] = { name: key, sales: 0, expenses: 0 };
-      chartDataMap[key].sales += s.total || 0;
+      chartDataMap[key].sales += Number(s.total) || 0;
     });
 
     const chartData = Object.values(chartDataMap).sort((a, b) => a.name.localeCompare(b.name));
@@ -307,7 +321,7 @@ export function AdminDashboard() {
         <div className="flex items-center gap-3">
           <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
             <SelectTrigger className="w-[140px] h-10 rounded-2xl border-border bg-muted font-black text-[10px] uppercase"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="weekly">Weekly Analysis</SelectItem><SelectItem value="monthly">Monthly Cycle</SelectItem><SelectItem value="yearly">Annual Overview</SelectItem></SelectContent>
+            <SelectContent><SelectItem value="weekly">Weekly Analysis</SelectItem><SelectItem value="monthly">Monthly Cycle</SelectItem><SelectItem value="yearly">Annual Overview</SelectItem><SelectItem value="all">Full History</SelectItem></SelectContent>
           </Select>
           <Button className="bg-primary text-primary-foreground font-black shadow-lg rounded-2xl h-10 px-6 uppercase tracking-widest text-[10px]" onClick={handleGenerateAI} disabled={isAiLoading}>
             <BrainCircuit className="mr-2" size={16} /> {isAiLoading ? "Processing..." : "Neural Forecast"}
@@ -400,7 +414,7 @@ export function AdminDashboard() {
                         <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><UserIcon size={10} /> {sale.sellerName} | <Clock size={10} /> {sale.timestamp?.toDate()?.toLocaleString()}</p>
                       </div>
                     </div>
-                    <div className="text-right"><p className="text-lg font-black text-primary tracking-tighter">৳{sale.total.toLocaleString()}</p></div>
+                    <div className="text-right"><p className="text-lg font-black text-primary tracking-tighter">৳{(Number(sale.total) || 0).toLocaleString()}</p></div>
                   </div>
                 ))}
               </div>
@@ -436,7 +450,7 @@ export function AdminDashboard() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-black text-primary">৳{log.joma?.toLocaleString()}</p>
+                        <p className="text-sm font-black text-primary">৳{(Number(log.joma) || 0).toLocaleString()}</p>
                         <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Verified</p>
                       </div>
                     </div>
@@ -512,7 +526,7 @@ export function AdminDashboard() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-black text-destructive">৳{exp.amount?.toLocaleString()}</p>
+                          <p className="text-sm font-black text-destructive">৳{(Number(exp.amount) || 0).toLocaleString()}</p>
                           <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Burned</p>
                         </div>
                       </div>
@@ -553,15 +567,15 @@ export function AdminDashboard() {
                     <div className="grid grid-cols-3 gap-6 text-center">
                       <div className="space-y-1">
                         <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-1"><Wallet size={10} className="text-secondary" /> Cashbox</p>
-                        <p className="text-xs font-black text-foreground">৳{log.cashbox?.toLocaleString()}</p>
+                        <p className="text-xs font-black text-foreground">৳{(Number(log.cashbox) || 0).toLocaleString()}</p>
                       </div>
                       <div className="space-y-1 border-x border-border/50 px-4">
                         <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-1"><ArrowDownCircle size={10} className="text-primary" /> Joma</p>
-                        <p className="text-xs font-black text-foreground">৳{log.joma?.toLocaleString()}</p>
+                        <p className="text-xs font-black text-foreground">৳{(Number(log.joma) || 0).toLocaleString()}</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-1"><ArrowUpCircle size={10} className="text-destructive" /> Due</p>
-                        <p className="text-xs font-black text-foreground">৳{log.due?.toLocaleString()}</p>
+                        <p className="text-xs font-black text-foreground">৳{(Number(log.due) || 0).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
@@ -649,7 +663,7 @@ export function AdminDashboard() {
                       <p className="text-[10px] font-black uppercase">Order #{sale.id.slice(-4).toUpperCase()}</p>
                       <p className="text-[8px] font-bold text-muted-foreground uppercase">{format((sale.timestamp as Timestamp).toDate(), "hh:mm a")}</p>
                     </div>
-                    <p className="text-xs font-black text-primary">৳{(sale.total || 0).toLocaleString()}</p>
+                    <p className="text-xs font-black text-primary">৳{(Number(sale.total) || 0).toLocaleString()}</p>
                   </div>
                 ))}
                 {!auditDetailData.sales.length && <p className="text-[9px] text-muted-foreground italic uppercase text-center py-6">No sales recorded.</p>}
@@ -667,7 +681,7 @@ export function AdminDashboard() {
                       <p className="text-[10px] font-black uppercase">{exp.description}</p>
                       <p className="text-[8px] font-bold text-muted-foreground uppercase">{exp.category}</p>
                     </div>
-                    <p className="text-xs font-black text-destructive">৳{(exp.amount || 0).toLocaleString()}</p>
+                    <p className="text-xs font-black text-destructive">৳{(Number(exp.amount) || 0).toLocaleString()}</p>
                   </div>
                 ))}
                 {!auditDetailData.expenses.length && <p className="text-[9px] text-muted-foreground italic uppercase text-center py-6">No expenses recorded.</p>}
@@ -681,14 +695,14 @@ export function AdminDashboard() {
               </div>
               <div>
                 <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Seller Reported Cash</p>
-                <p className="text-lg font-black text-secondary tracking-tighter">৳{viewingAudit?.cashbox?.toLocaleString()}</p>
+                <p className="text-lg font-black text-secondary tracking-tighter">৳{(Number(viewingAudit?.cashbox) || 0).toLocaleString()}</p>
               </div>
             </div>
             <ArrowRight className="text-secondary/30" />
             <div className="text-right">
               <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">System Net Balance</p>
               <p className="text-lg font-black text-foreground tracking-tighter">
-                ৳{(auditDetailData.sales.reduce((a, b) => a + (b.total || 0), 0) - auditDetailData.expenses.reduce((a, b) => a + (b.amount || 0), 0)).toLocaleString()}
+                ৳{(auditDetailData.sales.reduce((a, b) => a + (Number(b.total) || 0), 0) - auditDetailData.expenses.reduce((a, b) => a + (Number(b.amount) || 0), 0)).toLocaleString()}
               </p>
             </div>
           </div>
@@ -708,3 +722,4 @@ function StatCard({ title, value, subtitle, trend, icon, color }: any) {
     </Card>
   );
 }
+
