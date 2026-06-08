@@ -19,7 +19,11 @@ import {
   AlertTriangle,
   Clock,
   User as UserIcon,
-  Edit3
+  Edit3,
+  Wallet,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ClipboardCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,9 +81,15 @@ export function AdminDashboard() {
     return query(collection(firestore, "products"), orderBy("name", "asc"));
   }, [firestore]);
 
+  const accountLogsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "account_logs"), orderBy("timestamp", "desc"));
+  }, [firestore]);
+
   const { data: rawSales } = useCollection(salesQuery);
   const { data: rawExpenses } = useCollection(expensesQuery);
   const { data: products } = useCollection(productsQuery);
+  const { data: accountLogs } = useCollection(accountLogsQuery);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -179,10 +189,11 @@ export function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-muted border border-border p-1 h-12 rounded-2xl grid grid-cols-3 w-full md:w-[600px]">
+        <TabsList className="bg-muted border border-border p-1 h-12 rounded-2xl grid grid-cols-4 w-full md:w-[800px]">
           <TabsTrigger value="overview" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Intelligence</TabsTrigger>
           <TabsTrigger value="inventory" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Inventory</TabsTrigger>
           <TabsTrigger value="history" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Transactions</TabsTrigger>
+          <TabsTrigger value="closing" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Closing Ledger</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -256,6 +267,55 @@ export function AdminDashboard() {
                     <div className="text-right"><p className="text-lg font-black text-primary tracking-tighter">৳{sale.total.toLocaleString()}</p></div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="closing" className="space-y-6">
+          <Card className="glass-morphism border-t-4 border-secondary shadow-xl overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between border-b bg-secondary/5 py-4">
+              <div>
+                <CardTitle className="text-sm font-black uppercase tracking-widest">Daily Closing Ledger</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase mt-1">Audit trail for Cashbox, Joma, and Due submissions</CardDescription>
+              </div>
+              <ClipboardCheck className="text-secondary/30" size={24} />
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-[600px] overflow-y-auto">
+                {accountLogs?.map((log: any) => (
+                  <div key={log.id} className="p-6 border-b border-border/30 hover:bg-secondary/5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center"><Wallet className="text-secondary" size={20} /></div>
+                      <div>
+                        <p className="text-sm font-black uppercase tracking-tight">Closing Audit Report</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5">
+                          <UserIcon size={10} /> {log.sellerName} | <Clock size={10} /> {log.timestamp?.toDate()?.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-6 text-center">
+                      <div className="space-y-1">
+                        <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-1"><Wallet size={10} className="text-secondary" /> Cashbox</p>
+                        <p className="text-xs font-black text-foreground">৳{log.cashbox?.toLocaleString()}</p>
+                      </div>
+                      <div className="space-y-1 border-x border-border/50 px-4">
+                        <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-1"><ArrowDownCircle size={10} className="text-primary" /> Joma</p>
+                        <p className="text-xs font-black text-foreground">৳{log.joma?.toLocaleString()}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-1"><ArrowUpCircle size={10} className="text-destructive" /> Due</p>
+                        <p className="text-xs font-black text-foreground">৳{log.due?.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {(!accountLogs || accountLogs.length === 0) && (
+                  <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                    <ClipboardCheck size={40} className="mb-4" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">No audit reports submitted</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
