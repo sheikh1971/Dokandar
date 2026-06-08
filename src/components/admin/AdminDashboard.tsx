@@ -35,7 +35,8 @@ import {
   Loader2,
   Building2,
   Users,
-  CheckCircle2
+  CheckCircle2,
+  Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +54,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
 import { useFirestore, useCollection, useUser } from "@/firebase";
-import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
+import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp, getDocs, where } from "firebase/firestore";
 import { startOfWeek, startOfMonth, startOfYear, isAfter, format, isSameDay } from "date-fns";
 import { 
   Bar, 
@@ -87,8 +88,9 @@ export function AdminDashboard() {
   const [isBuyDateOpen, setIsBuyDateOpen] = useState(false);
   const [isBuySubmitting, setIsBuySubmitting] = useState(false);
 
-  // Detail view state
+  // Detail view states
   const [viewingAudit, setViewingAudit] = useState<any>(null);
+  const [isBurnDetailOpen, setIsBurnDetailOpen] = useState(false);
   
   // Guard to prevent multiple overhead additions in one session
   const [hasCheckedOverheads, setHasCheckedOverheads] = useState(false);
@@ -125,47 +127,51 @@ export function AdminDashboard() {
   useEffect(() => {
     if (expensesLoading || !rawExpenses || !firestore || hasCheckedOverheads) return;
 
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const syncOverheads = async () => {
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
 
-    // Stricter check: Look for any record marked as overhead in the current month
-    const existingOverheads = rawExpenses.filter(e => {
-      let date: Date | null = null;
-      if (e.timestamp instanceof Timestamp) date = e.timestamp.toDate();
-      else if (e.timestamp instanceof Date) date = e.timestamp;
-      
-      return e.isOverhead === true && 
-             date && 
-             date.getMonth() === currentMonth && 
-             date.getFullYear() === currentYear;
-    });
-
-    if (existingOverheads.length === 0) {
-      setHasCheckedOverheads(true);
-      
-      const overheads = [
-        { description: "Fixed Overhead: Salary", amount: 11500, category: "Fixed Cost" },
-        { description: "Fixed Overhead: Rent", amount: 10500, category: "Fixed Cost" }
-      ];
-
-      overheads.forEach(item => {
-        const data = {
-          ...item,
-          timestamp: serverTimestamp(),
-          isOverhead: true,
-          addedAutomatically: true
-        };
-        addDoc(collection(firestore, "expenses"), data);
+      // Robust check: Filter local results first
+      const existingOverheads = rawExpenses.filter(e => {
+        let date: Date | null = null;
+        if (e.timestamp instanceof Timestamp) date = e.timestamp.toDate();
+        else if (e.timestamp instanceof Date) date = e.timestamp;
+        
+        return (e.isOverhead === true || e.category === "Fixed Cost") && 
+               date && 
+               date.getMonth() === currentMonth && 
+               date.getFullYear() === currentYear;
       });
 
-      toast({
-        title: "Overheads Provisioned",
-        description: "Monthly fixed costs (Salary & Rent) have been synchronized."
-      });
-    } else {
-      setHasCheckedOverheads(true);
-    }
+      if (existingOverheads.length === 0) {
+        setHasCheckedOverheads(true);
+        
+        const overheads = [
+          { description: "Fixed Overhead: Salary", amount: 11500, category: "Fixed Cost" },
+          { description: "Fixed Overhead: Rent", amount: 10500, category: "Fixed Cost" }
+        ];
+
+        for (const item of overheads) {
+          const data = {
+            ...item,
+            timestamp: serverTimestamp(),
+            isOverhead: true,
+            addedAutomatically: true
+          };
+          addDoc(collection(firestore, "expenses"), data);
+        }
+
+        toast({
+          title: "Overheads Provisioned",
+          description: "Monthly fixed costs (Salary & Rent) have been synchronized."
+        });
+      } else {
+        setHasCheckedOverheads(true);
+      }
+    };
+
+    syncOverheads();
   }, [rawExpenses, expensesLoading, firestore, toast, hasCheckedOverheads]);
 
   const stats = useMemo(() => {
@@ -203,7 +209,6 @@ export function AdminDashboard() {
 
     const totalJoma = filteredLogs.reduce((acc, l) => acc + (Number(l.joma) || 0), 0);
     
-    // Correctly identifying 'Buy' records from manual procurement or specific categories
     const buyCategories = ['procurement', 'buy', 'purchase', 'shopping', 'stock'];
     const totalBuy = filteredExpenses
       .filter(e => {
@@ -341,7 +346,9 @@ export function AdminDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Revenue In" value={`৳${stats.totalRevenue.toLocaleString()}`} trend="up" icon={<DollarSign size={20} />} color="primary" />
-        <StatCard title="Operational Burn" value={`৳${stats.totalExpenses.toLocaleString()}`} trend="down" icon={<TrendingDown size={20} />} color="destructive" />
+        <div onClick={() => setIsBurnDetailOpen(true)} className="cursor-pointer">
+          <StatCard title="Operational Burn" value={`৳${stats.totalExpenses.toLocaleString()}`} trend="down" icon={<TrendingDown size={20} />} color="destructive" />
+        </div>
         <StatCard title="Liquidity" value={`৳${stats.netProfit.toLocaleString()}`} trend={stats.netProfit >= 0 ? "up" : "down"} icon={<TrendingUp size={20} />} color="secondary" />
         <StatCard title="Active Catalog" value={products?.length || 0} trend="none" icon={<Package size={20} />} color="muted" />
       </div>
@@ -666,6 +673,40 @@ export function AdminDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Burn Detail Dialog */}
+      <Dialog open={isBurnDetailOpen} onOpenChange={setIsBurnDetailOpen}>
+        <DialogContent className="glass-morphism border-t-4 border-destructive max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-destructive">
+              <TrendingDown />
+              Operational Burn: Calculation Factors
+            </DialogTitle>
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Detailed breakdown of all expenses for the selected period ({period})</p>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-2 mt-4">
+            {stats.expenses.map((exp: any) => (
+              <div key={exp.id} className="p-4 bg-muted/30 rounded-xl border border-border flex justify-between items-center hover:bg-destructive/5 transition-all">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-black uppercase">{exp.description}</p>
+                    {exp.isOverhead && <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black">FIXED OVERHEAD</span>}
+                  </div>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1">
+                    Category: {exp.category} | {exp.timestamp?.toDate()?.toLocaleString()}
+                  </p>
+                </div>
+                <p className="text-sm font-black text-destructive">৳{(Number(exp.amount) || 0).toLocaleString()}</p>
+              </div>
+            ))}
+            {stats.expenses.length === 0 && <p className="text-center py-10 text-muted-foreground uppercase font-black text-[10px]">No expense factors found</p>}
+          </div>
+          <div className="bg-destructive/5 border border-destructive/20 p-4 rounded-xl flex justify-between items-center mt-4">
+            <p className="text-[10px] font-black uppercase text-destructive">Total Aggregated Outflow</p>
+            <p className="text-xl font-black text-destructive tracking-tighter">৳{stats.totalExpenses.toLocaleString()}</p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Audit Detail Dialog */}
       <Dialog open={!!viewingAudit} onOpenChange={() => setViewingAudit(null)}>
