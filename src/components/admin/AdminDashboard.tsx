@@ -94,7 +94,7 @@ export function AdminDashboard() {
   const [hasCheckedOverheads, setHasCheckedOverheads] = useState(false);
 
   const { firestore } = useFirestore();
-  const { user } = useAuth(); // Corrected hook usage
+  const { user } = useUser();
 
   const salesQuery = useMemo(() => {
     if (!firestore) return null;
