@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -30,7 +31,8 @@ import {
   Tags,
   Coins,
   Calendar as CalendarIcon,
-  PlusCircle
+  PlusCircle,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -405,49 +407,46 @@ export function AdminDashboard() {
                   <CardTitle className="text-sm font-black uppercase tracking-widest text-destructive">Buy (Purchases) Summary</CardTitle>
                   <CardDescription className="text-[10px] font-bold uppercase mt-1">Capital spent on inventory and shop shopping</CardDescription>
                 </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
-                      <PlusCircle size={20} />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="glass-morphism border-t-4 border-destructive">
-                    <DialogHeader>
-                      <DialogTitle className="text-sm font-black uppercase tracking-widest text-destructive">Manual Buy Entry</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase">Transaction Date</Label>
-                        <Popover open={isBuyDateOpen} onOpenChange={setIsBuyDateOpen}>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl bg-muted/30 border-border">
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {buyDate ? format(buyDate, "PPP") : <span>Pick a date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" selected={buyDate} onSelect={(d) => { if (d) { setBuyDate(d); setIsBuyDateOpen(false); } }} initialFocus />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase">Purchase Description</Label>
-                        <Input value={buyDesc} onChange={(e) => setBuyDesc(e.target.value)} placeholder="e.g. Stock for Groceries" className="bg-muted h-12 rounded-xl font-black" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase">Amount (৳)</Label>
-                        <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder="0.00" className="bg-muted h-12 rounded-xl font-black text-destructive" />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={handleAddBuyRecord} disabled={isBuySubmitting} className="w-full bg-destructive text-destructive-foreground py-8 rounded-2xl font-black uppercase tracking-widest shadow-xl">
-                        Commit Purchase Record
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <ShoppingCart className="text-destructive/30" size={24} />
               </CardHeader>
               <CardContent className="pt-6">
+                {/* INLINE MANUAL ENTRY FORM */}
+                <div className="bg-destructive/5 p-4 rounded-xl border border-destructive/10 mb-6 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PlusCircle className="text-destructive" size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-destructive">Manual Procurement Entry</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black uppercase text-muted-foreground">Entry Date</Label>
+                      <Popover open={isBuyDateOpen} onOpenChange={setIsBuyDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-bold h-10 rounded-xl bg-white/50 border-border text-[10px]">
+                            <CalendarIcon className="mr-2 h-3 w-3" />
+                            {buyDate ? format(buyDate, "PP") : "Pick date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar mode="single" selected={buyDate} onSelect={(d) => { if (d) { setBuyDate(d); setIsBuyDateOpen(false); } }} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black uppercase text-muted-foreground">Amount (৳)</Label>
+                      <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder="0.00" className="h-10 rounded-xl bg-white/50 font-black text-[10px] text-destructive" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[8px] font-black uppercase text-muted-foreground">Purchase Detail</Label>
+                    <div className="flex gap-2">
+                      <Input value={buyDesc} onChange={(e) => setBuyDesc(e.target.value)} placeholder="e.g. Bulk Rice Stock" className="h-10 rounded-xl bg-white/50 font-black text-[10px] flex-1" />
+                      <Button onClick={handleAddBuyRecord} disabled={isBuySubmitting} className="bg-destructive h-10 font-black uppercase text-[10px] px-6 rounded-xl">
+                        {isBuySubmitting ? <Loader2 className="animate-spin h-3 w-3" /> : "Commit"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="text-center py-6 border-b border-border mb-6">
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Aggregate Shopping Value</p>
                   <h3 className="text-4xl font-black text-destructive tracking-tighter">৳{stats.totalBuy.toLocaleString()}</h3>
