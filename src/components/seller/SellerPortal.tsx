@@ -34,14 +34,16 @@ import {
   Wallet,
   ArrowDownCircle,
   ArrowUpCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  Eye,
+  ArrowRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection } from "@/firebase";
 import { collection, addDoc, serverTimestamp, query, orderBy, deleteDoc, doc, where, Timestamp, updateDoc } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError, type SecurityRuleContext } from "@/firebase/errors";
-import { startOfDay, isAfter, subDays, format } from "date-fns";
+import { startOfDay, isAfter, subDays, format, isSameDay } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -75,6 +77,9 @@ export function SellerPortal() {
   const [due, setDue] = useState("");
   const [auditDate, setAuditDate] = useState<Date>(new Date());
   const [isAccountSubmitting, setIsAccountSubmitting] = useState(false);
+
+  // Detail view state
+  const [viewingAudit, setViewingAudit] = useState<any>(null);
 
   // Edit record state
   const [editingRecord, setEditingRecord] = useState<any>(null);
@@ -403,7 +408,6 @@ export function SellerPortal() {
     if (type === "sales") updates.total = val;
     else if (type === "expenses") updates.amount = val;
     else if (type === "account_logs") {
-       // For audits, we assume editValue updates the cashbox as a primary reference or we could extend this
        updates.cashbox = val;
     }
 
@@ -425,6 +429,24 @@ export function SellerPortal() {
     ];
     return list.sort((a, b) => (b.timestamp as any)?.toDate() - (a.timestamp as any)?.toDate());
   }, [stats.recentSales, stats.recentExpenses, stats.recentAudits]);
+
+  // Derived data for detail view
+  const auditDetailData = useMemo(() => {
+    if (!viewingAudit || !sellerSales || !sellerExpenses) return { sales: [], expenses: [] };
+    const date = (viewingAudit.timestamp as Timestamp).toDate();
+    
+    const sales = (sellerSales || []).filter(s => {
+      const ts = s.timestamp as Timestamp;
+      return ts && isSameDay(ts.toDate(), date);
+    });
+
+    const expenses = (sellerExpenses || []).filter(e => {
+      const ts = e.timestamp as Timestamp;
+      return ts && isSameDay(ts.toDate(), date);
+    });
+
+    return { sales, expenses };
+  }, [viewingAudit, sellerSales, sellerExpenses]);
 
   return (
     <div className="space-y-6">
@@ -729,7 +751,7 @@ export function SellerPortal() {
               <CardContent className="p-0">
                 <div className="max-h-[500px] overflow-y-auto">
                   {mergedHistory.map((record: any) => (
-                      <div key={record.id} className="flex flex-col p-6 border-b border-border/30 hover:bg-muted/30 transition-all">
+                      <div key={record.id} className="flex flex-col p-6 border-b border-border/30 hover:bg-muted/30 transition-all group">
                         <div className="flex justify-between items-start mb-4">
                           <div className="flex items-center gap-4">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
@@ -764,7 +786,13 @@ export function SellerPortal() {
                         </div>
 
                         {record.type === 'audit' && (
-                          <div className="grid grid-cols-3 gap-3 bg-muted/30 p-4 rounded-xl border border-border/50 mb-2">
+                          <div 
+                            onClick={() => setViewingAudit(record)}
+                            className="grid grid-cols-3 gap-3 bg-muted/30 p-4 rounded-xl border border-border/50 mb-2 cursor-pointer hover:bg-secondary/5 hover:border-secondary/30 transition-all relative overflow-hidden"
+                          >
+                            <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Eye size={12} className="text-secondary" />
+                            </div>
                             <div className="space-y-1">
                               <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5"><Wallet size={10} className="text-secondary" /> Cashbox</p>
                               <p className="text-xs font-black text-foreground">৳{record.cashbox?.toLocaleString()}</p>
@@ -795,6 +823,73 @@ export function SellerPortal() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Audit Detail Dialog */}
+      <Dialog open={!!viewingAudit} onOpenChange={() => setViewingAudit(null)}>
+        <DialogContent className="glass-morphism border-t-4 border-secondary max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <ClipboardCheck className="text-secondary" />
+              Daily Intelligence Detail: {viewingAudit && format((viewingAudit.timestamp as Timestamp).toDate(), "PPP")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 border-b border-primary/20 pb-2">
+                <ShoppingCart size={14} /> Daily Sales Feed
+              </h4>
+              <div className="space-y-2">
+                {auditDetailData.sales.map((sale: any) => (
+                  <div key={sale.id} className="p-3 bg-muted/30 rounded-xl border border-border flex justify-between items-center group hover:bg-primary/5 hover:border-primary/20 transition-all">
+                    <div>
+                      <p className="text-[10px] font-black uppercase">Order #{sale.id.slice(-4).toUpperCase()}</p>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase">{format((sale.timestamp as Timestamp).toDate(), "hh:mm a")}</p>
+                    </div>
+                    <p className="text-xs font-black text-primary">৳{sale.total.toLocaleString()}</p>
+                  </div>
+                ))}
+                {!auditDetailData.sales.length && <p className="text-[9px] text-muted-foreground italic uppercase text-center py-6">No sales recorded on this date.</p>}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-destructive flex items-center gap-2 border-b border-destructive/20 pb-2">
+                <Banknote size={14} /> Operational Burn
+              </h4>
+              <div className="space-y-2">
+                {auditDetailData.expenses.map((exp: any) => (
+                  <div key={exp.id} className="p-3 bg-muted/30 rounded-xl border border-border flex justify-between items-center group hover:bg-destructive/5 hover:border-destructive/20 transition-all">
+                    <div>
+                      <p className="text-[10px] font-black uppercase">{exp.description}</p>
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase">{exp.category}</p>
+                    </div>
+                    <p className="text-xs font-black text-destructive">৳{exp.amount.toLocaleString()}</p>
+                  </div>
+                ))}
+                {!auditDetailData.expenses.length && <p className="text-[9px] text-muted-foreground italic uppercase text-center py-6">No expenses recorded on this date.</p>}
+              </div>
+            </div>
+          </div>
+          <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-xl flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+                <Wallet className="text-secondary" size={18} />
+              </div>
+              <div>
+                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Verified Closing Cash</p>
+                <p className="text-lg font-black text-secondary tracking-tighter">৳{viewingAudit?.cashbox?.toLocaleString()}</p>
+              </div>
+            </div>
+            <ArrowRight className="text-secondary/30" />
+            <div className="text-right">
+              <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Calculated Balance</p>
+              <p className="text-lg font-black text-foreground tracking-tighter">
+                ৳{(auditDetailData.sales.reduce((a, b) => a + (b.total || 0), 0) - auditDetailData.expenses.reduce((a, b) => a + (b.amount || 0), 0)).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editingRecord} onOpenChange={() => setEditingRecord(null)}>
         <DialogContent className="glass-morphism border-t-4 border-secondary">
