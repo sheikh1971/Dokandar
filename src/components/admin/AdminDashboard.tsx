@@ -94,17 +94,17 @@ export function AdminDashboard() {
   const [hasCheckedOverheads, setHasCheckedOverheads] = useState(false);
 
   const { firestore } = useFirestore();
-  const { user } = useUser();
+  const { user } = useAuth(); // Corrected hook usage
 
   const salesQuery = useMemo(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(collection(firestore, "sales"), orderBy("timestamp", "desc"));
-  }, [firestore, user]);
+  }, [firestore]);
 
   const expensesQuery = useMemo(() => {
-    if (!firestore || !user) return null;
+    if (!firestore) return null;
     return query(collection(firestore, "expenses"), orderBy("timestamp", "desc"));
-  }, [firestore, user]);
+  }, [firestore]);
 
   const productsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -123,26 +123,25 @@ export function AdminDashboard() {
 
   // Autonomous Overheads Engine: Auto-add Rent/Salary if missing for the current month
   useEffect(() => {
-    if (expensesLoading || !rawExpenses || !user || !firestore || hasCheckedOverheads) return;
+    if (expensesLoading || !rawExpenses || !firestore || hasCheckedOverheads) return;
 
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Check if overheads already exist for this month
-    const hasOverheadsThisMonth = rawExpenses.some(e => {
+    // Stricter check: Look for any record marked as overhead in the current month
+    const existingOverheads = rawExpenses.filter(e => {
       let date: Date | null = null;
       if (e.timestamp instanceof Timestamp) date = e.timestamp.toDate();
       else if (e.timestamp instanceof Date) date = e.timestamp;
       
-      return e.isOverhead && 
+      return e.isOverhead === true && 
              date && 
              date.getMonth() === currentMonth && 
              date.getFullYear() === currentYear;
     });
 
-    if (!hasOverheadsThisMonth) {
-      // Set to true immediately to avoid race conditions with multiple async triggers
+    if (existingOverheads.length === 0) {
       setHasCheckedOverheads(true);
       
       const overheads = [
@@ -154,20 +153,20 @@ export function AdminDashboard() {
         const data = {
           ...item,
           timestamp: serverTimestamp(),
-          sellerId: user.uid,
-          isOverhead: true
+          isOverhead: true,
+          addedAutomatically: true
         };
         addDoc(collection(firestore, "expenses"), data);
       });
 
       toast({
-        title: "Intelligence Protocol Active",
-        description: "Monthly Overheads synchronized."
+        title: "Overheads Provisioned",
+        description: "Monthly fixed costs (Salary & Rent) have been synchronized."
       });
     } else {
       setHasCheckedOverheads(true);
     }
-  }, [rawExpenses, expensesLoading, user, firestore, toast, hasCheckedOverheads]);
+  }, [rawExpenses, expensesLoading, firestore, toast, hasCheckedOverheads]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -181,19 +180,19 @@ export function AdminDashboard() {
     }
 
     const filteredSales = (rawSales || []).filter(s => {
-      if (!s.timestamp) return true; // Include pending writes
+      if (!s.timestamp) return true;
       const date = (s.timestamp as Timestamp).toDate();
       return isAfter(date, filterDate);
     });
 
     const filteredExpenses = (rawExpenses || []).filter(e => {
-      if (!e.timestamp) return true; // Include pending writes
+      if (!e.timestamp) return true;
       const date = (e.timestamp as Timestamp).toDate();
       return isAfter(date, filterDate);
     });
 
     const filteredLogs = (accountLogs || []).filter(l => {
-      if (!l.timestamp) return true; // Include pending writes
+      if (!l.timestamp) return true;
       const date = (l.timestamp as Timestamp).toDate();
       return isAfter(date, filterDate);
     });
@@ -204,10 +203,13 @@ export function AdminDashboard() {
 
     const totalJoma = filteredLogs.reduce((acc, l) => acc + (Number(l.joma) || 0), 0);
     
+    // Correctly identifying 'Buy' records from manual procurement or specific categories
+    const buyCategories = ['procurement', 'buy', 'purchase', 'shopping', 'stock'];
     const totalBuy = filteredExpenses
       .filter(e => {
         const cat = (e.category || "").toLowerCase();
-        return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock' || cat === 'procurement';
+        const desc = (e.description || "").toLowerCase();
+        return buyCategories.some(c => cat.includes(c) || desc.includes(c));
       })
       .reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
 
@@ -262,14 +264,13 @@ export function AdminDashboard() {
   };
 
   const handleAddBuyRecord = async () => {
-    if (!firestore || !buyAmount || !buyDesc || !user) return;
+    if (!firestore || !buyAmount || !buyDesc) return;
     setIsBuySubmitting(true);
     const buyData = {
       description: buyDesc,
       amount: parseFloat(buyAmount),
       category: "Procurement",
       timestamp: Timestamp.fromDate(buyDate),
-      sellerId: user.uid,
       addedByAdmin: true
     };
 
@@ -292,6 +293,15 @@ export function AdminDashboard() {
     deleteDoc(doc(firestore, "products", id))
       .catch(async () => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({ path: `products/${id}`, operation: "delete" }));
+      });
+  };
+
+  const handleDeleteRecord = (type: string, id: string) => {
+    if (!firestore) return;
+    deleteDoc(doc(firestore, type, id))
+      .then(() => toast({ title: "Record Deleted" }))
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({ path: `${type}/${id}`, operation: "delete" }));
       });
   };
 
@@ -402,21 +412,53 @@ export function AdminDashboard() {
             <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 py-4"><div><CardTitle className="text-sm font-black uppercase tracking-widest">Transaction Forensic Log</CardTitle></div><TableIcon className="text-muted-foreground/30" size={24} /></CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[600px] overflow-y-auto">
-                {stats.sales.map((sale: any) => (
-                  <div key={sale.id} className="p-6 border-b border-border/30 hover:bg-muted/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center"><History className="text-secondary" size={20} /></div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-black uppercase tracking-tight">TXN#{sale.id.slice(-6).toUpperCase()}</p>
-                          {sale.updatedAt && <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black border border-secondary/20 flex items-center gap-1"><Edit3 size={8} /> MODIFIED BY {sale.updatedBy?.toUpperCase()}</span>}
+                <Tabs defaultValue="all_sales">
+                   <div className="px-6 py-4 border-b">
+                     <TabsList className="bg-muted/50 p-1">
+                       <TabsTrigger value="all_sales" className="text-[9px] font-black uppercase px-4">Sales</TabsTrigger>
+                       <TabsTrigger value="all_expenses" className="text-[9px] font-black uppercase px-4">Expenses</TabsTrigger>
+                     </TabsList>
+                   </div>
+                   <TabsContent value="all_sales" className="mt-0">
+                     {stats.sales.map((sale: any) => (
+                        <div key={sale.id} className="p-6 border-b border-border/30 hover:bg-muted/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center"><History className="text-secondary" size={20} /></div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-black uppercase tracking-tight">TXN#{sale.id.slice(-6).toUpperCase()}</p>
+                              </div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><UserIcon size={10} /> {sale.sellerName} | <Clock size={10} /> {sale.timestamp?.toDate()?.toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <p className="text-lg font-black text-primary tracking-tighter">৳{(Number(sale.total) || 0).toLocaleString()}</p>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRecord('sales', sale.id)} className="text-destructive"><Trash2 size={16} /></Button>
+                          </div>
                         </div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><UserIcon size={10} /> {sale.sellerName} | <Clock size={10} /> {sale.timestamp?.toDate()?.toLocaleString()}</p>
-                      </div>
-                    </div>
-                    <div className="text-right"><p className="text-lg font-black text-primary tracking-tighter">৳{(Number(sale.total) || 0).toLocaleString()}</p></div>
-                  </div>
-                ))}
+                      ))}
+                   </TabsContent>
+                   <TabsContent value="all_expenses" className="mt-0">
+                     {stats.expenses.map((exp: any) => (
+                        <div key={exp.id} className="p-6 border-b border-border/30 hover:bg-muted/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center"><Banknote className="text-destructive" size={20} /></div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-black uppercase tracking-tight">{exp.description}</p>
+                                {exp.isOverhead && <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black border border-secondary/20">FIXED OVERHEAD</span>}
+                              </div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><Tags size={10} /> {exp.category} | <Clock size={10} /> {exp.timestamp?.toDate()?.toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <p className="text-lg font-black text-destructive tracking-tighter">৳{(Number(exp.amount) || 0).toLocaleString()}</p>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRecord('expenses', exp.id)} className="text-destructive"><Trash2 size={16} /></Button>
+                          </div>
+                        </div>
+                      ))}
+                   </TabsContent>
+                </Tabs>
               </div>
             </CardContent>
           </Card>
@@ -512,7 +554,8 @@ export function AdminDashboard() {
                   {stats.expenses
                     .filter(e => {
                       const cat = (e.category || "").toLowerCase();
-                      return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock' || cat === 'procurement';
+                      const desc = (e.description || "").toLowerCase();
+                      return ['procurement', 'buy', 'purchase', 'shopping', 'stock'].some(c => cat.includes(c) || desc.includes(c));
                     })
                     .map((exp: any) => (
                       <div key={exp.id} className="flex justify-between items-center p-4 rounded-xl border border-border/30 hover:bg-destructive/5 transition-all group">
@@ -620,23 +663,6 @@ export function AdminDashboard() {
                   </div>
                 </CardContent>
              </Card>
-
-             <Card className="glass-morphism border-t-4 border-primary shadow-xl h-full">
-                <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 py-4">
-                   <div>
-                    <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Team Management</CardTitle>
-                    <CardDescription className="text-[10px] font-bold uppercase mt-1">Staff Payroll Intelligence</CardDescription>
-                  </div>
-                  <Users className="text-primary/30" size={24} />
-                </CardHeader>
-                <CardContent className="pt-6">
-                   <div className="flex flex-col items-center justify-center py-12 opacity-30 text-center">
-                      <Users size={48} className="mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Detailed Staff Node Active</p>
-                      <p className="text-[8px] font-bold uppercase mt-2 max-w-[200px]">Aggregate salary logic synchronized with main overhead terminal.</p>
-                   </div>
-                </CardContent>
-             </Card>
           </div>
         </TabsContent>
       </Tabs>
@@ -722,4 +748,3 @@ function StatCard({ title, value, subtitle, trend, icon, color }: any) {
     </Card>
   );
 }
-
