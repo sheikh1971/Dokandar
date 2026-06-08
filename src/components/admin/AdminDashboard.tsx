@@ -28,7 +28,9 @@ import {
   ShoppingCart,
   Banknote,
   Tags,
-  Coins
+  Coins,
+  Calendar as CalendarIcon,
+  PlusCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +44,8 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
 import { useFirestore, useCollection, useUser } from "@/firebase";
 import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
@@ -57,10 +61,12 @@ import {
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { errorEmitter } from "@/firebase/error-emitter";
+import { useToast } from "@/hooks/use-toast";
 
 type AnalysisPeriod = "weekly" | "monthly" | "yearly" | "all";
 
 export function AdminDashboard() {
+  const { toast } = useToast();
   const [period, setPeriod] = useState<AnalysisPeriod>("monthly");
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -68,6 +74,13 @@ export function AdminDashboard() {
   const [newProductName, setNewProductName] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
   const [newProductCategory, setNewProductCategory] = useState("Essentials");
+
+  // Buy Entry State
+  const [buyDesc, setBuyDesc] = useState("");
+  const [buyAmount, setBuyAmount] = useState("");
+  const [buyDate, setBuyDate] = useState<Date>(new Date());
+  const [isBuyDateOpen, setIsBuyDateOpen] = useState(false);
+  const [isBuySubmitting, setIsBuySubmitting] = useState(false);
 
   // Detail view state
   const [viewingAudit, setViewingAudit] = useState<any>(null);
@@ -132,7 +145,6 @@ export function AdminDashboard() {
 
     const totalJoma = filteredLogs.reduce((acc, l) => acc + (l.joma || 0), 0);
     
-    // Improved "Buy" logic to include various shopping categories
     const totalBuy = filteredExpenses
       .filter(e => {
         const cat = (e.category || "").toLowerCase();
@@ -163,7 +175,6 @@ export function AdminDashboard() {
     };
   }, [rawSales, rawExpenses, accountLogs, period]);
 
-  // Derived data for detail view
   const auditDetailData = useMemo(() => {
     if (!viewingAudit || !rawSales || !rawExpenses) return { sales: [], expenses: [] };
     const date = (viewingAudit.timestamp as Timestamp).toDate();
@@ -189,6 +200,32 @@ export function AdminDashboard() {
       .catch(async () => {
         errorEmitter.emit("permission-error", new FirestorePermissionError({ path: "products", operation: "create", requestResourceData: productData }));
       });
+  };
+
+  const handleAddBuyRecord = async () => {
+    if (!firestore || !buyAmount || !buyDesc || !user) return;
+    setIsBuySubmitting(true);
+    const buyData = {
+      description: buyDesc,
+      amount: parseFloat(buyAmount),
+      category: "Shopping",
+      timestamp: Timestamp.fromDate(buyDate),
+      sellerId: user.uid,
+      addedByAdmin: true
+    };
+
+    addDoc(collection(firestore, "expenses"), buyData)
+      .then(() => {
+        toast({ title: "Purchase Recorded", description: "Buy ledger updated." });
+        setBuyDesc("");
+        setBuyAmount("");
+      })
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: "expenses", operation: "create", requestResourceData: buyData
+        }));
+      })
+      .finally(() => setIsBuySubmitting(false));
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -358,12 +395,6 @@ export function AdminDashboard() {
                       </div>
                     </div>
                   ))}
-                  {(!stats.logs || stats.logs.length === 0) && (
-                    <div className="text-center py-12 opacity-30">
-                      <Coins size={40} className="mx-auto mb-2" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">No Joma entries detected</p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -374,7 +405,47 @@ export function AdminDashboard() {
                   <CardTitle className="text-sm font-black uppercase tracking-widest text-destructive">Buy (Purchases) Summary</CardTitle>
                   <CardDescription className="text-[10px] font-bold uppercase mt-1">Capital spent on inventory and shop shopping</CardDescription>
                 </div>
-                <Tags className="text-destructive/30" size={24} />
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                      <PlusCircle size={20} />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="glass-morphism border-t-4 border-destructive">
+                    <DialogHeader>
+                      <DialogTitle className="text-sm font-black uppercase tracking-widest text-destructive">Manual Buy Entry</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase">Transaction Date</Label>
+                        <Popover open={isBuyDateOpen} onOpenChange={setIsBuyDateOpen}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl bg-muted/30 border-border">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {buyDate ? format(buyDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar mode="single" selected={buyDate} onSelect={(d) => { if (d) { setBuyDate(d); setIsBuyDateOpen(false); } }} initialFocus />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase">Purchase Description</Label>
+                        <Input value={buyDesc} onChange={(e) => setBuyDesc(e.target.value)} placeholder="e.g. Stock for Groceries" className="bg-muted h-12 rounded-xl font-black" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase">Amount (৳)</Label>
+                        <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} placeholder="0.00" className="bg-muted h-12 rounded-xl font-black text-destructive" />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleAddBuyRecord} disabled={isBuySubmitting} className="w-full bg-destructive text-destructive-foreground py-8 rounded-2xl font-black uppercase tracking-widest shadow-xl">
+                        Commit Purchase Record
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="text-center py-6 border-b border-border mb-6">
@@ -404,15 +475,6 @@ export function AdminDashboard() {
                         </div>
                       </div>
                   ))}
-                  {(!stats.expenses.filter(e => {
-                    const cat = (e.category || "").toLowerCase();
-                    return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock';
-                  }).length) && (
-                    <div className="text-center py-12 opacity-30">
-                      <Tags size={40} className="mx-auto mb-2" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">No Buy/Shopping records detected</p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -464,12 +526,6 @@ export function AdminDashboard() {
                     </div>
                   </div>
                 ))}
-                {(!accountLogs || accountLogs.length === 0) && (
-                  <div className="flex flex-col items-center justify-center py-20 opacity-40">
-                    <ClipboardCheck size={40} className="mb-4" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">No audit reports submitted</p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
