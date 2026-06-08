@@ -37,7 +37,9 @@ import {
   Users,
   CheckCircle2,
   Search,
-  Settings
+  Settings,
+  Target,
+  Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,8 +57,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { receiveWeeklyProfitSummary } from "@/ai/flows/owner-receives-weekly-profit-summary";
 import { useFirestore, useCollection, useUser } from "@/firebase";
-import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp, getDocs, where } from "firebase/firestore";
-import { startOfWeek, startOfMonth, startOfYear, isAfter, format, isSameDay } from "date-fns";
+import { collection, query, orderBy, Timestamp, addDoc, deleteDoc, doc, serverTimestamp, getDocs, where, updateDoc } from "firebase/firestore";
+import { startOfWeek, startOfMonth, startOfYear, isAfter, format, isSameDay, startOfDay } from "date-fns";
 import { 
   Bar, 
   BarChart, 
@@ -67,7 +69,7 @@ import {
   Legend
 } from "recharts";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
-import { FirestorePermissionError } from "@/firebase/errors";
+import { FirestorePermissionError, type SecurityRuleContext } from "@/firebase/errors";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -135,7 +137,7 @@ export function AdminDashboard() {
   const { data: accountLogs } = useCollection(accountLogsQuery);
   const { data: overheadConfigs, loading: configsLoading } = useCollection(overheadConfigsQuery);
 
-  // Autonomous Overheads Engine: Auto-add based on dynamic config
+  // Autonomous Overheads Engine
   useEffect(() => {
     if (expensesLoading || configsLoading || !rawExpenses || !overheadConfigs || !firestore || hasCheckedOverheads) return;
 
@@ -262,6 +264,23 @@ export function AdminDashboard() {
       chartData 
     };
   }, [rawSales, rawExpenses, accountLogs, period]);
+
+  const targetStats = useMemo(() => {
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const totalMonthlyOverhead = overheadConfigs?.reduce((acc: number, c: any) => acc + (Number(c.amount) || 0), 0) || 0;
+    const dailyTarget = totalMonthlyOverhead / daysInMonth;
+    
+    const today = startOfDay(now);
+    const todaySales = (rawSales || []).filter(s => {
+      const ts = s.timestamp as Timestamp;
+      return ts && isAfter(ts.toDate(), today);
+    }).reduce((acc, s) => acc + (Number(s.total) || 0), 0);
+
+    const progress = dailyTarget > 0 ? Math.min(100, Math.round((todaySales / dailyTarget) * 100)) : 0;
+    
+    return { dailyTarget, todaySales, progress };
+  }, [overheadConfigs, rawSales]);
 
   const auditDetailData = useMemo(() => {
     if (!viewingAudit || !rawSales || !rawExpenses) return { sales: [], expenses: [] };
@@ -396,7 +415,14 @@ export function AdminDashboard() {
           <StatCard title="Operational Burn" value={`৳${stats.totalExpenses.toLocaleString()}`} trend="down" icon={<TrendingDown size={20} />} color="destructive" />
         </div>
         <StatCard title="Liquidity" value={`৳${stats.netProfit.toLocaleString()}`} trend={stats.netProfit >= 0 ? "up" : "down"} icon={<TrendingUp size={20} />} color="secondary" />
-        <StatCard title="Active Catalog" value={products?.length || 0} trend="none" icon={<Package size={20} />} color="muted" />
+        <StatCard 
+          title="Target Efficiency" 
+          value={`${targetStats.progress}%`} 
+          subtitle={`৳${targetStats.todaySales.toLocaleString()} / ৳${Math.round(targetStats.dailyTarget).toLocaleString()} Goal`}
+          trend={targetStats.progress >= 100 ? "up" : "none"} 
+          icon={<Target size={20} />} 
+          color={targetStats.progress >= 100 ? "primary" : "secondary"} 
+        />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
@@ -751,6 +777,44 @@ export function AdminDashboard() {
                   <div className="p-4 bg-muted/20 border border-border/50 rounded-xl text-center">
                     <p className="text-[9px] text-muted-foreground uppercase font-bold leading-relaxed">
                       System automatically logs active overheads for the current month upon your first visit. Updates take effect immediately.
+                    </p>
+                  </div>
+                </CardContent>
+             </Card>
+
+             <Card className="glass-morphism border-t-4 border-primary shadow-xl h-full">
+                <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 py-4">
+                  <div>
+                    <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Break-even Threshold</CardTitle>
+                    <CardDescription className="text-[10px] font-bold uppercase mt-1">Minimum daily sales to cover overheads</CardDescription>
+                  </div>
+                  <Target className="text-primary/30" size={24} />
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                  <div className="text-center py-6">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Calculated Daily Target</p>
+                    <h3 className="text-4xl font-black text-primary tracking-tighter">৳{Math.round(targetStats.dailyTarget).toLocaleString()}</h3>
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">Based on current month ({(new Date()).toLocaleString('default', { month: 'long' })})</p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                      <span className="text-muted-foreground">Today's Achievement</span>
+                      <span className="text-primary">{targetStats.progress}%</span>
+                    </div>
+                    <div className="h-4 bg-muted rounded-full overflow-hidden border border-border">
+                      <div 
+                        className="h-full bg-primary transition-all duration-1000 ease-out flex items-center justify-end px-2"
+                        style={{ width: `${targetStats.progress}%` }}
+                      >
+                         {targetStats.progress >= 20 && <Zap size={10} className="text-primary-foreground animate-pulse" />}
+                      </div>
+                    </div>
+                    <p className="text-[9px] font-bold text-center uppercase text-muted-foreground leading-relaxed">
+                      {targetStats.progress >= 100 
+                        ? "THRESHOLD REACHED: FIXED COSTS COVERED FOR TODAY." 
+                        : `৳${(Math.round(targetStats.dailyTarget) - targetStats.todaySales).toLocaleString()} MORE NEEDED TO BEAR TODAY'S MINIMUM EXPENSE.`
+                      }
                     </p>
                   </div>
                 </CardContent>

@@ -36,7 +36,8 @@ import {
   ArrowUpCircle,
   ClipboardCheck,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Target
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection } from "@/firebase";
@@ -119,9 +120,15 @@ export function SellerPortal() {
     return query(collection(firestore, "account_logs"), where("sellerId", "==", user.uid));
   }, [firestore, user]);
 
+  const overheadConfigsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return collection(firestore, "overhead_configs");
+  }, [firestore]);
+
   const { data: sellerSales } = useCollection(salesQuery);
   const { data: sellerExpenses } = useCollection(expensesQuery);
   const { data: sellerAccountLogs } = useCollection(accountLogsQuery);
+  const { data: overheadConfigs } = useCollection(overheadConfigsQuery);
 
   const stats = useMemo(() => {
     const today = startOfDay(new Date());
@@ -162,6 +169,16 @@ export function SellerPortal() {
     };
   }, [sellerSales, sellerExpenses, sellerAccountLogs]);
 
+  const targetStats = useMemo(() => {
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const totalMonthlyOverhead = overheadConfigs?.reduce((acc: number, c: any) => acc + (Number(c.amount) || 0), 0) || 0;
+    const dailyTarget = totalMonthlyOverhead / daysInMonth;
+    const progress = dailyTarget > 0 ? Math.min(100, Math.round((stats.todayTotal / dailyTarget) * 100)) : 0;
+    
+    return { dailyTarget, progress };
+  }, [overheadConfigs, stats.todayTotal]);
+
   const t = {
     bn: {
       sales: "দৈনিক বিক্রি",
@@ -190,7 +207,9 @@ export function SellerPortal() {
       cashbox: "ক্যাশ বক্স",
       joma: "জমা",
       due: "বাকি",
-      selectDate: "তারিখ নির্বাচন করুন"
+      selectDate: "তারিখ নির্বাচন করুন",
+      dailyMission: "আজকের লক্ষ্য",
+      thresholdText: "ন্যূনতম খরচ তোলার লক্ষ্য"
     },
     en: {
       sales: "Daily Sales",
@@ -219,7 +238,9 @@ export function SellerPortal() {
       cashbox: "Cashbox",
       joma: "Joma",
       due: "Due",
-      selectDate: "Select Date"
+      selectDate: "Select Date",
+      dailyMission: "Today's Mission",
+      thresholdText: "Target to cover daily expenses"
     }
   }[lang];
 
@@ -451,7 +472,7 @@ export function SellerPortal() {
 
     const expenses = (sellerExpenses || []).filter(e => {
       const ts = e.timestamp as Timestamp;
-      return ts && isSameDay(ts.toDate(), date);
+      return ts && isAfter(ts.toDate(), startOfDay(date)) && !isAfter(ts.toDate(), Timestamp.fromDate(new Date(date.getTime() + 86400000)).toDate());
     });
 
     return { sales, expenses };
@@ -468,22 +489,42 @@ export function SellerPortal() {
           <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] mt-1">Operational Intelligence Node</p>
         </div>
 
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <Card className="glass-morphism px-6 py-3 flex items-center gap-4 rounded-2xl border-none shadow-lg">
-            <div className="text-right">
-              <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{t.performance}</p>
-              <p className="text-xl font-black text-primary tracking-tighter">৳{stats.todayTotal.toLocaleString()}</p>
-            </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="text-right">
-              <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">TXNS</p>
-              <p className="text-xl font-black text-foreground tracking-tighter">{stats.todayCount}</p>
-            </div>
+        <div className="flex flex-col md:flex-row items-end gap-4 w-full md:w-auto">
+          <Card className="glass-morphism w-full md:w-64 px-5 py-4 rounded-2xl border-none shadow-lg space-y-3">
+             <div className="flex justify-between items-center">
+                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                  <Target size={12} className="text-primary" /> {t.dailyMission}
+                </p>
+                <span className="text-[10px] font-black text-primary">{targetStats.progress}%</span>
+             </div>
+             <div className="h-2.5 bg-muted rounded-full overflow-hidden border border-border">
+                <div 
+                  className="h-full bg-primary transition-all duration-1000 ease-out"
+                  style={{ width: `${targetStats.progress}%` }}
+                />
+             </div>
+             <p className="text-[8px] font-bold text-muted-foreground uppercase text-center tracking-tighter">
+               {t.thresholdText}: ৳{Math.round(targetStats.dailyTarget).toLocaleString()}
+             </p>
           </Card>
-          
-          <Button variant="outline" size="sm" onClick={() => setLang(lang === "bn" ? "en" : "bn")} className="rounded-2xl font-black text-[10px] uppercase border-border h-12 px-6">
-            {lang === "bn" ? "English" : "বাংলা"}
-          </Button>
+
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <Card className="glass-morphism flex-1 md:flex-none px-6 py-3 flex items-center gap-4 rounded-2xl border-none shadow-lg">
+              <div className="text-right">
+                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{t.performance}</p>
+                <p className="text-xl font-black text-primary tracking-tighter">৳{stats.todayTotal.toLocaleString()}</p>
+              </div>
+              <div className="w-px h-8 bg-border" />
+              <div className="text-right">
+                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">TXNS</p>
+                <p className="text-xl font-black text-foreground tracking-tighter">{stats.todayCount}</p>
+              </div>
+            </Card>
+            
+            <Button variant="outline" size="sm" onClick={() => setLang(lang === "bn" ? "en" : "bn")} className="rounded-2xl font-black text-[10px] uppercase border-border h-12 px-6">
+              {lang === "bn" ? "English" : "বাংলা"}
+            </Button>
+          </div>
         </div>
       </div>
 
