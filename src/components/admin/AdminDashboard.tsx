@@ -32,7 +32,9 @@ import {
   Coins,
   Calendar as CalendarIcon,
   PlusCircle,
-  Loader2
+  Loader2,
+  Building2,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +152,7 @@ export function AdminDashboard() {
     const totalBuy = filteredExpenses
       .filter(e => {
         const cat = (e.category || "").toLowerCase();
-        return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock';
+        return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock' || cat === 'procurement';
       })
       .reduce((acc, e) => acc + (e.amount || 0), 0);
 
@@ -210,7 +212,7 @@ export function AdminDashboard() {
     const buyData = {
       description: buyDesc,
       amount: parseFloat(buyAmount),
-      category: "Shopping",
+      category: "Procurement",
       timestamp: Timestamp.fromDate(buyDate),
       sellerId: user.uid,
       addedByAdmin: true
@@ -228,6 +230,32 @@ export function AdminDashboard() {
         }));
       })
       .finally(() => setIsBuySubmitting(false));
+  };
+
+  const handleCommitOverheads = async () => {
+    if (!firestore || !user) return;
+    const overheads = [
+      { description: "Fixed Overhead: Salary", amount: 11500, category: "Fixed Cost" },
+      { description: "Fixed Overhead: Rent", amount: 10500, category: "Fixed Cost" }
+    ];
+
+    try {
+      for (const item of overheads) {
+        const data = {
+          ...item,
+          timestamp: serverTimestamp(),
+          sellerId: user.uid,
+          isOverhead: true
+        };
+        addDoc(collection(firestore, "expenses"), data);
+      }
+      toast({
+        title: "Overheads Synchronized",
+        description: "Salary and Rent have been recorded as expenses."
+      });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -280,12 +308,13 @@ export function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-muted border border-border p-1 h-12 rounded-2xl grid grid-cols-5 w-full md:w-[950px]">
+        <TabsList className="bg-muted border border-border p-1 h-12 rounded-2xl grid grid-cols-6 w-full md:w-[1100px]">
           <TabsTrigger value="overview" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Intelligence</TabsTrigger>
           <TabsTrigger value="inventory" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Inventory</TabsTrigger>
           <TabsTrigger value="history" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Transactions</TabsTrigger>
           <TabsTrigger value="buy_joma" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Buy & Joma</TabsTrigger>
           <TabsTrigger value="closing" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Closing Ledger</TabsTrigger>
+          <TabsTrigger value="overheads" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overheads</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -410,7 +439,6 @@ export function AdminDashboard() {
                 <ShoppingCart className="text-destructive/30" size={24} />
               </CardHeader>
               <CardContent className="pt-6">
-                {/* INLINE MANUAL ENTRY FORM */}
                 <div className="bg-destructive/5 p-4 rounded-xl border border-destructive/10 mb-6 space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <PlusCircle className="text-destructive" size={14} />
@@ -455,7 +483,7 @@ export function AdminDashboard() {
                   {stats.expenses
                     .filter(e => {
                       const cat = (e.category || "").toLowerCase();
-                      return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock';
+                      return cat === 'buy' || cat === 'purchase' || cat === 'shopping' || cat === 'stock' || cat === 'procurement';
                     })
                     .map((exp: any) => (
                       <div key={exp.id} className="flex justify-between items-center p-4 rounded-xl border border-border/30 hover:bg-destructive/5 transition-all group">
@@ -504,9 +532,7 @@ export function AdminDashboard() {
                       <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center"><Wallet className="text-secondary" size={20} /></div>
                       <div>
                         <p className="text-sm font-black uppercase tracking-tight">Closing Audit Report</p>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5">
-                          <UserIcon size={10} /> {log.sellerName} | <Clock size={10} /> {log.timestamp?.toDate()?.toLocaleString()}
-                        </p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><UserIcon size={10} /> {log.sellerName} | <Clock size={10} /> {log.timestamp?.toDate()?.toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-6 text-center">
@@ -528,6 +554,57 @@ export function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="overheads" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             <Card className="glass-morphism border-t-4 border-secondary shadow-xl h-full">
+                <CardHeader className="flex flex-row items-center justify-between border-b bg-secondary/5 py-4">
+                  <div>
+                    <CardTitle className="text-sm font-black uppercase tracking-widest text-secondary">Fixed Overheads</CardTitle>
+                    <CardDescription className="text-[10px] font-bold uppercase mt-1">Standard Monthly Business Costs</CardDescription>
+                  </div>
+                  <Building2 className="text-secondary/30" size={24} />
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center p-4 bg-muted/30 rounded-xl border border-border">
+                       <span className="text-xs font-black uppercase tracking-widest">Monthly Salary</span>
+                       <span className="text-sm font-black text-secondary">৳11,500</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4 bg-muted/30 rounded-xl border border-border">
+                       <span className="text-xs font-black uppercase tracking-widest">Monthly Rent</span>
+                       <span className="text-sm font-black text-secondary">৳10,500</span>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-secondary/10 rounded-xl border border-secondary/20 flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest">Total Monthly Commit</span>
+                    <span className="text-lg font-black text-secondary tracking-tighter">৳22,000</span>
+                  </div>
+                  <Button onClick={handleCommitOverheads} className="w-full bg-secondary py-8 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all">
+                    Commit Monthly Overheads
+                  </Button>
+                  <p className="text-[8px] text-muted-foreground uppercase font-bold text-center italic">Logs Salary & Rent as expenses for the current month.</p>
+                </CardContent>
+             </Card>
+
+             <Card className="glass-morphism border-t-4 border-primary shadow-xl h-full">
+                <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 py-4">
+                   <div>
+                    <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Team Management</CardTitle>
+                    <CardDescription className="text-[10px] font-bold uppercase mt-1">Staff Payroll Intelligence</CardDescription>
+                  </div>
+                  <Users className="text-primary/30" size={24} />
+                </CardHeader>
+                <CardContent className="pt-6">
+                   <div className="flex flex-col items-center justify-center py-12 opacity-30 text-center">
+                      <Users size={48} className="mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Detailed Staff Node Active</p>
+                      <p className="text-[8px] font-bold uppercase mt-2 max-w-[200px]">Aggregate salary logic synchronized with main overhead terminal.</p>
+                   </div>
+                </CardContent>
+             </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
