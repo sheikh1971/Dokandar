@@ -30,7 +30,10 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  CheckCircle2
+  CheckCircle2,
+  Wallet,
+  ArrowDownCircle,
+  ArrowUpCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection } from "@/firebase";
@@ -63,6 +66,12 @@ export function SellerPortal() {
   const [expenseDesc, setExpenseDesc] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
   const [expenseCat, setExpenseCat] = useState("Operations");
+
+  // Daily Account Audit State
+  const [cashbox, setCashbox] = useState("");
+  const [joma, setJoma] = useState("");
+  const [due, setDue] = useState("");
+  const [isAccountSubmitting, setIsAccountSubmitting] = useState(false);
 
   // Edit record state
   const [editingRecord, setEditingRecord] = useState<any>(null);
@@ -151,7 +160,11 @@ export function SellerPortal() {
       edit: "সম্পাদনা",
       delete: "মুছে ফেলুন",
       addMissing: "পুরানো হিসাব যুক্ত করুন",
-      deployProduct: "পণ্য যুক্ত করুন"
+      deployProduct: "পণ্য যুক্ত করুন",
+      dailyAudit: "দৈনিক হিসাব মিলকরণ",
+      cashbox: "ক্যাশ বক্স",
+      joma: "জমা",
+      due: "বাকি"
     },
     en: {
       sales: "Daily Sales",
@@ -175,7 +188,11 @@ export function SellerPortal() {
       edit: "Edit Record",
       delete: "Delete",
       addMissing: "Add Missing Entry",
-      deployProduct: "Deploy Product"
+      deployProduct: "Deploy Product",
+      dailyAudit: "Daily Account Audit",
+      cashbox: "Cashbox",
+      joma: "Joma",
+      due: "Due"
     }
   }[lang];
 
@@ -255,6 +272,33 @@ export function SellerPortal() {
           path: "expenses", operation: "create", requestResourceData: expenseData
         }));
       });
+  };
+
+  const handleSubmitDailyAudit = async () => {
+    if (!firestore || !user || !cashbox) return;
+    setIsAccountSubmitting(true);
+    const auditData = {
+      cashbox: parseFloat(cashbox) || 0,
+      joma: parseFloat(joma) || 0,
+      due: parseFloat(due) || 0,
+      timestamp: serverTimestamp(),
+      sellerId: user.uid,
+      sellerName: user.displayName || user.email?.split('@')[0] || "Staff"
+    };
+
+    addDoc(collection(firestore, "account_logs"), auditData)
+      .then(() => {
+        toast({ title: "Audit Submitted", description: "Daily cash records synchronized." });
+        setCashbox("");
+        setJoma("");
+        setDue("");
+      })
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: "account_logs", operation: "create", requestResourceData: auditData
+        }));
+      })
+      .finally(() => setIsAccountSubmitting(false));
   };
 
   const handleAddProduct = () => {
@@ -382,7 +426,7 @@ export function SellerPortal() {
       </div>
 
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-muted border border-border p-1 mb-8 h-14 rounded-2xl">
+        <TabsList className="grid w-full grid-cols-4 bg-muted border border-border p-1 h-14 rounded-2xl">
           <TabsTrigger value="sales" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <ShoppingCart className="mr-2" size={16} /> {t.sales}
           </TabsTrigger>
@@ -473,31 +517,88 @@ export function SellerPortal() {
         </TabsContent>
 
         <TabsContent value="expenses">
-          <Card className="glass-morphism max-w-2xl mx-auto border-t-4 border-destructive">
-            <CardHeader><CardTitle className="text-lg font-black uppercase tracking-widest">{t.addExpense}</CardTitle></CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground">Description</Label>
-                <Input value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Rent, Supplies..." className="bg-muted/30 border-border h-12 rounded-xl font-black" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+            <Card className="glass-morphism border-t-4 border-destructive">
+              <CardHeader><CardTitle className="text-lg font-black uppercase tracking-widest">{t.addExpense}</CardTitle></CardHeader>
+              <CardContent className="space-y-5">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Amount</Label>
-                  <Input type="number" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} placeholder="0.00" className="bg-muted/30 border-border h-12 rounded-xl font-black text-destructive" />
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Description</Label>
+                  <Input value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Rent, Supplies..." className="bg-muted/30 border-border h-12 rounded-xl font-black" />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Amount</Label>
+                    <Input type="number" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} placeholder="0.00" className="bg-muted/30 border-border h-12 rounded-xl font-black text-destructive" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Category</Label>
+                    <Select value={expenseCat} onValueChange={setExpenseCat}>
+                      <SelectTrigger className="bg-muted border-border h-12 rounded-xl font-black"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="Operations">Operations</SelectItem><SelectItem value="Rent">Rent</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button onClick={handleSubmitExpense} className="w-full bg-destructive text-destructive-foreground font-black py-8 rounded-2xl hover:bg-destructive/90 uppercase tracking-widest shadow-lg">
+                  <Plus className="mr-2" size={16} /> {t.submit}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-morphism border-t-4 border-secondary shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-lg font-black uppercase tracking-widest flex items-center gap-2">
+                  <Wallet className="text-secondary" /> {t.dailyAudit}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground">Category</Label>
-                  <Select value={expenseCat} onValueChange={setExpenseCat}>
-                    <SelectTrigger className="bg-muted border-border h-12 rounded-xl font-black"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="Operations">Operations</SelectItem><SelectItem value="Rent">Rent</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
-                  </Select>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
+                    <Wallet size={12} /> {t.cashbox}
+                  </Label>
+                  <Input 
+                    type="number" 
+                    value={cashbox} 
+                    onChange={(e) => setCashbox(e.target.value)} 
+                    placeholder="Closing Balance" 
+                    className="bg-muted/30 border-border h-12 rounded-xl font-black text-secondary" 
+                  />
                 </div>
-              </div>
-              <Button onClick={handleSubmitExpense} className="w-full bg-destructive text-destructive-foreground font-black py-8 rounded-2xl hover:bg-destructive/90 uppercase tracking-widest shadow-lg">
-                <Plus className="mr-2" size={16} /> {t.submit}
-              </Button>
-            </CardContent>
-          </Card>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
+                      <ArrowDownCircle size={12} /> {t.joma}
+                    </Label>
+                    <Input 
+                      type="number" 
+                      value={joma} 
+                      onChange={(e) => setJoma(e.target.value)} 
+                      placeholder="Total Deposits" 
+                      className="bg-muted/30 border-border h-12 rounded-xl font-black text-primary" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
+                      <ArrowUpCircle size={12} /> {t.due}
+                    </Label>
+                    <Input 
+                      type="number" 
+                      value={due} 
+                      onChange={(e) => setDue(e.target.value)} 
+                      placeholder="Outstanding" 
+                      className="bg-muted/30 border-border h-12 rounded-xl font-black text-destructive" 
+                    />
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleSubmitDailyAudit} 
+                  disabled={isAccountSubmitting}
+                  className="w-full bg-secondary text-secondary-foreground font-black py-8 rounded-2xl hover:bg-secondary/90 uppercase tracking-widest shadow-lg"
+                >
+                  {isAccountSubmitting ? <Loader2 className="animate-spin" /> : <><CheckCircle2 className="mr-2" size={16} /> Sync Daily Accounts</>}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-6">

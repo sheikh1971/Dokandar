@@ -63,6 +63,19 @@
         "updatedAt": { "type": "string", "format": "date-time" },
         "updatedBy": { "type": "string" }
       }
+    },
+    "AccountLog": {
+      "title": "Daily Account Log",
+      "description": "Tracking of cashbox, deposits, and dues.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "cashbox": { "type": "number", "description": "Total cash in hand." },
+        "joma": { "type": "number", "description": "Total deposits/received." },
+        "due": { "type": "number", "description": "Total outstanding/due." },
+        "sellerId": { "type": "string" },
+        "sellerName": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -84,6 +97,10 @@
     "/expenses/{expenseId}": {
       "schema": "Expense",
       "description": "Expense records. Sellers can create, edit, and delete their own. Admins can read all."
+    },
+    "/account_logs/{logId}": {
+      "schema": "AccountLog",
+      "description": "Daily account summaries. Sellers can create their own. Admins can view all."
     }
   }
 }
