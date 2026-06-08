@@ -303,10 +303,11 @@ export function AdminDashboard() {
 
   const handleDeleteRecord = (type: string, id: string) => {
     if (!firestore) return;
-    deleteDoc(doc(firestore, type, id))
+    const collectionName = type === 'sale' ? 'sales' : type === 'expense' ? 'expenses' : 'account_logs';
+    deleteDoc(doc(firestore, collectionName, id))
       .then(() => toast({ title: "Record Deleted" }))
       .catch(async () => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({ path: `${type}/${id}`, operation: "delete" }));
+        errorEmitter.emit("permission-error", new FirestorePermissionError({ path: `${collectionName}/${id}`, operation: "delete" }));
       });
   };
 
@@ -686,7 +687,7 @@ export function AdminDashboard() {
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-2 mt-4">
             {stats.expenses.map((exp: any) => (
-              <div key={exp.id} className="p-4 bg-muted/30 rounded-xl border border-border flex justify-between items-center hover:bg-destructive/5 transition-all">
+              <div key={exp.id} className="p-4 bg-muted/30 rounded-xl border border-border flex justify-between items-center hover:bg-destructive/5 transition-all group">
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-[10px] font-black uppercase">{exp.description}</p>
@@ -696,7 +697,17 @@ export function AdminDashboard() {
                     Category: {exp.category} | {exp.timestamp?.toDate()?.toLocaleString()}
                   </p>
                 </div>
-                <p className="text-sm font-black text-destructive">৳{(Number(exp.amount) || 0).toLocaleString()}</p>
+                <div className="flex items-center gap-4">
+                  <p className="text-sm font-black text-destructive">৳{(Number(exp.amount) || 0).toLocaleString()}</p>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => handleDeleteRecord('expense', exp.id)} 
+                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
               </div>
             ))}
             {stats.expenses.length === 0 && <p className="text-center py-10 text-muted-foreground uppercase font-black text-[10px]">No expense factors found</p>}
