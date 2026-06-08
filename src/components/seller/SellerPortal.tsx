@@ -66,18 +66,20 @@ export function SellerPortal() {
   const [expenseDesc, setExpenseDesc] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
   const [expenseCat, setExpenseCat] = useState("Operations");
+  const [expenseDate, setExpenseDate] = useState<Date>(new Date());
 
   // Daily Account Audit State
   const [cashbox, setCashbox] = useState("");
   const [joma, setJoma] = useState("");
   const [due, setDue] = useState("");
+  const [auditDate, setAuditDate] = useState<Date>(new Date());
   const [isAccountSubmitting, setIsAccountSubmitting] = useState(false);
 
   // Edit record state
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [editValue, setEditValue] = useState("");
 
-  // Manual Past Entry State
+  // Manual Past Entry State (Ledger tab)
   const [isPastEntryOpen, setIsPastEntryOpen] = useState(false);
   const [pastEntryDate, setPastEntryDate] = useState<Date>(new Date());
   const [pastEntryType, setPastEntryType] = useState<"sale" | "expense">("sale");
@@ -164,7 +166,8 @@ export function SellerPortal() {
       dailyAudit: "দৈনিক হিসাব মিলকরণ",
       cashbox: "ক্যাশ বক্স",
       joma: "জমা",
-      due: "বাকি"
+      due: "বাকি",
+      selectDate: "তারিখ নির্বাচন করুন"
     },
     en: {
       sales: "Daily Sales",
@@ -192,7 +195,8 @@ export function SellerPortal() {
       dailyAudit: "Daily Account Audit",
       cashbox: "Cashbox",
       joma: "Joma",
-      due: "Due"
+      due: "Due",
+      selectDate: "Select Date"
     }
   }[lang];
 
@@ -257,7 +261,7 @@ export function SellerPortal() {
       description: expenseDesc,
       amount: parseFloat(expenseAmount),
       category: expenseCat,
-      timestamp: serverTimestamp(),
+      timestamp: Timestamp.fromDate(expenseDate),
       sellerId: user.uid
     };
 
@@ -281,7 +285,7 @@ export function SellerPortal() {
       cashbox: parseFloat(cashbox) || 0,
       joma: parseFloat(joma) || 0,
       due: parseFloat(due) || 0,
-      timestamp: serverTimestamp(),
+      timestamp: Timestamp.fromDate(auditDate),
       sellerId: user.uid,
       sellerName: user.displayName || user.email?.split('@')[0] || "Staff"
     };
@@ -401,7 +405,7 @@ export function SellerPortal() {
         <div>
           <h2 className="text-2xl font-black font-headline tracking-tighter uppercase flex items-center gap-3">
             <Zap className="text-primary fill-primary" />
-            {lang === "bn" ? "বিক্রেতা ড্যাশবোর্ড" : "SELLER POS CORE"}
+            {lang === "bn" ? "বিক্রেতা পোর্টাল" : "SELLER POS CORE"}
           </h2>
           <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] mt-1">Operational Intelligence Node</p>
         </div>
@@ -518,9 +522,23 @@ export function SellerPortal() {
 
         <TabsContent value="expenses">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            <Card className="glass-morphism border-t-4 border-destructive">
+            <Card className="glass-morphism border-t-4 border-destructive shadow-xl">
               <CardHeader><CardTitle className="text-lg font-black uppercase tracking-widest">{t.addExpense}</CardTitle></CardHeader>
               <CardContent className="space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.selectDate}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl bg-muted/30 border-border">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {expenseDate ? format(expenseDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={expenseDate} onSelect={(d) => d && setExpenseDate(d)} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Description</Label>
                   <Input value={expenseDesc} onChange={(e) => setExpenseDesc(e.target.value)} placeholder="Rent, Supplies..." className="bg-muted/30 border-border h-12 rounded-xl font-black" />
@@ -551,6 +569,20 @@ export function SellerPortal() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground">{t.selectDate}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-bold h-12 rounded-xl bg-muted/30 border-border">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {auditDate ? format(auditDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={auditDate} onSelect={(d) => d && setAuditDate(d)} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
                     <Wallet size={12} /> {t.cashbox}
