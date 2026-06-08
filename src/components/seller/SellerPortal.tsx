@@ -33,7 +33,8 @@ import {
   CheckCircle2,
   Wallet,
   ArrowDownCircle,
-  ArrowUpCircle
+  ArrowUpCircle,
+  ClipboardCheck
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection } from "@/firebase";
@@ -103,8 +104,14 @@ export function SellerPortal() {
     return query(collection(firestore, "expenses"), where("sellerId", "==", user.uid));
   }, [firestore, user]);
 
+  const accountLogsQuery = useMemo(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, "account_logs"), where("sellerId", "==", user.uid));
+  }, [firestore, user]);
+
   const { data: sellerSales } = useCollection(salesQuery);
   const { data: sellerExpenses } = useCollection(expensesQuery);
+  const { data: sellerAccountLogs } = useCollection(accountLogsQuery);
 
   const stats = useMemo(() => {
     const today = startOfDay(new Date());
@@ -117,6 +124,11 @@ export function SellerPortal() {
 
     const recentExpenses = (sellerExpenses || []).filter(e => {
       const ts = e.timestamp as Timestamp;
+      return ts && isAfter(ts.toDate(), sevenDaysAgo);
+    }).sort((a, b) => (b.timestamp as any)?.toDate() - (a.timestamp as any)?.toDate());
+
+    const recentAudits = (sellerAccountLogs || []).filter(l => {
+      const ts = l.timestamp as Timestamp;
       return ts && isAfter(ts.toDate(), sevenDaysAgo);
     }).sort((a, b) => (b.timestamp as any)?.toDate() - (a.timestamp as any)?.toDate());
 
@@ -135,9 +147,10 @@ export function SellerPortal() {
       weekExpenses,
       netProfit: weekRevenue - weekExpenses,
       recentSales,
-      recentExpenses
+      recentExpenses,
+      recentAudits
     };
-  }, [sellerSales, sellerExpenses]);
+  }, [sellerSales, sellerExpenses, sellerAccountLogs]);
 
   const t = {
     bn: {
@@ -370,7 +383,7 @@ export function SellerPortal() {
 
   const handleDeleteRecord = async (type: string, id: string) => {
     if (!firestore) return;
-    const collectionName = type === 'sale' ? 'sales' : 'expenses';
+    const collectionName = type === 'sale' ? 'sales' : type === 'expense' ? 'expenses' : 'account_logs';
     deleteDoc(doc(firestore, collectionName, id))
       .then(() => toast({ title: "Record Purged" }))
       .catch(async () => {
@@ -382,12 +395,17 @@ export function SellerPortal() {
 
   const handleUpdateRecord = async () => {
     if (!firestore || !editingRecord || !editValue || !user) return;
-    const type = editingRecord.type === "sale" ? "sales" : "expenses";
+    const type = editingRecord.type === "sale" ? "sales" : editingRecord.type === "expense" ? "expenses" : "account_logs";
     const ref = doc(firestore, type, editingRecord.id);
     const val = parseFloat(editValue);
-    const updates = type === "sales" 
-      ? { total: val, updatedAt: serverTimestamp(), updatedBy: user.email }
-      : { amount: val, updatedAt: serverTimestamp(), updatedBy: user.email };
+    
+    let updates: any = { updatedAt: serverTimestamp(), updatedBy: user.email };
+    if (type === "sales") updates.total = val;
+    else if (type === "expenses") updates.amount = val;
+    else if (type === "account_logs") {
+       // For audits, we assume editValue updates the cashbox as a primary reference or we could extend this
+       updates.cashbox = val;
+    }
 
     updateDoc(ref, updates).then(() => {
       toast({ title: "Audit Trail Updated" });
@@ -398,6 +416,15 @@ export function SellerPortal() {
       } satisfies SecurityRuleContext));
     });
   };
+
+  const mergedHistory = useMemo(() => {
+    const list = [
+      ...(stats.recentSales || []).map(s => ({ ...s, type: 'sale' })),
+      ...(stats.recentExpenses || []).map(e => ({ ...e, type: 'expense' })),
+      ...(stats.recentAudits || []).map(l => ({ ...l, type: 'audit' }))
+    ];
+    return list.sort((a, b) => (b.timestamp as any)?.toDate() - (a.timestamp as any)?.toDate());
+  }, [stats.recentSales, stats.recentExpenses, stats.recentAudits]);
 
   return (
     <div className="space-y-6">
@@ -701,28 +728,64 @@ export function SellerPortal() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="max-h-[500px] overflow-y-auto">
-                  {[...stats.recentSales.map(s => ({...s, type: 'sale'})), ...stats.recentExpenses.map(e => ({...e, type: 'expense'}))]
-                    .sort((a, b) => (b.timestamp as any)?.toDate() - (a.timestamp as any)?.toDate())
-                    .map((record: any) => (
-                      <div key={record.id} className="flex justify-between items-center p-6 border-b border-border/30 hover:bg-muted/30 transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${record.type === 'sale' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
-                            {record.type === 'sale' ? <ShoppingCart size={20} /> : <Banknote size={20} />}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-black uppercase tracking-tight">{record.type === 'sale' ? 'Sales Entry' : record.description}</p>
-                              {record.updatedAt && <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black border border-secondary/20 flex items-center gap-1"><Edit3 size={8} /> MODIFIED</span>}
+                  {mergedHistory.map((record: any) => (
+                      <div key={record.id} className="flex flex-col p-6 border-b border-border/30 hover:bg-muted/30 transition-all">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                              record.type === 'sale' ? 'bg-primary/10 text-primary' : 
+                              record.type === 'expense' ? 'bg-destructive/10 text-destructive' : 
+                              'bg-secondary/10 text-secondary'
+                            }`}>
+                              {record.type === 'sale' ? <ShoppingCart size={20} /> : record.type === 'expense' ? <Banknote size={20} /> : <ClipboardCheck size={20} />}
                             </div>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><CalendarIcon size={10} /> {record.timestamp?.toDate()?.toLocaleString()}</p>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-black uppercase tracking-tight">
+                                  {record.type === 'sale' ? 'Sales Entry' : record.type === 'expense' ? record.description : 'Daily Account Audit'}
+                                </p>
+                                {record.updatedAt && <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black border border-secondary/20 flex items-center gap-1"><Edit3 size={8} /> MODIFIED</span>}
+                              </div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><CalendarIcon size={10} /> {record.timestamp?.toDate()?.toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                             {record.type !== 'audit' ? (
+                               <p className={`text-lg font-black tracking-tighter ${record.type === 'sale' ? 'text-primary' : 'text-destructive'}`}>
+                                 ৳{(record.total || record.amount).toLocaleString()}
+                               </p>
+                             ) : (
+                               <div className="flex items-center gap-2 bg-secondary/5 px-3 py-1 rounded-full border border-secondary/10">
+                                  <CheckCircle2 className="text-secondary" size={14} />
+                                  <span className="text-[10px] font-black text-secondary uppercase tracking-widest">Verified</span>
+                               </div>
+                             )}
                           </div>
                         </div>
-                        <div className="text-right space-y-2">
-                          <p className={`text-lg font-black tracking-tighter ${record.type === 'sale' ? 'text-primary' : 'text-destructive'}`}>৳{(record.total || record.amount).toLocaleString()}</p>
-                          <div className="flex gap-2 justify-end">
-                            <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-secondary hover:bg-secondary/10 rounded-lg px-3" onClick={() => { setEditingRecord(record); setEditValue((record.total || record.amount).toString()); }}>Edit</Button>
-                            <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 rounded-lg px-3" onClick={() => handleDeleteRecord(record.type, record.id)}>Delete</Button>
+
+                        {record.type === 'audit' && (
+                          <div className="grid grid-cols-3 gap-3 bg-muted/30 p-4 rounded-xl border border-border/50 mb-2">
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5"><Wallet size={10} className="text-secondary" /> Cashbox</p>
+                              <p className="text-xs font-black text-foreground">৳{record.cashbox?.toLocaleString()}</p>
+                            </div>
+                            <div className="space-y-1 border-x border-border/50 px-3">
+                              <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5"><ArrowDownCircle size={10} className="text-primary" /> Joma</p>
+                              <p className="text-xs font-black text-foreground">৳{record.joma?.toLocaleString()}</p>
+                            </div>
+                            <div className="space-y-1 pl-3">
+                              <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5"><ArrowUpCircle size={10} className="text-destructive" /> Due</p>
+                              <p className="text-xs font-black text-foreground">৳{record.due?.toLocaleString()}</p>
+                            </div>
                           </div>
+                        )}
+
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-secondary hover:bg-secondary/10 rounded-lg px-3" onClick={() => { 
+                            setEditingRecord(record); 
+                            setEditValue((record.total || record.amount || record.cashbox).toString()); 
+                          }}>Edit</Button>
+                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 rounded-lg px-3" onClick={() => handleDeleteRecord(record.type, record.id)}>Delete</Button>
                         </div>
                       </div>
                     ))}
@@ -737,7 +800,12 @@ export function SellerPortal() {
         <DialogContent className="glass-morphism border-t-4 border-secondary">
           <DialogHeader><DialogTitle className="text-sm font-black uppercase tracking-widest">Adjust Verified Entry</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">New Rectified Amount (৳)</Label><Input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} className="bg-muted font-black h-12 rounded-xl text-secondary" /></div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground">
+                {editingRecord?.type === 'audit' ? 'Rectified Cashbox Amount (৳)' : 'New Rectified Amount (৳)'}
+              </Label>
+              <Input type="number" value={editValue} onChange={(e) => setEditValue(e.target.value)} className="bg-muted font-black h-12 rounded-xl text-secondary" />
+            </div>
             <div className="bg-secondary/5 border border-secondary/20 p-4 rounded-xl flex gap-3"><AlertCircle className="text-secondary shrink-0" size={16} /><p className="text-[9px] text-muted-foreground font-bold uppercase leading-relaxed">Audit Log: All adjustments are recorded and linked to your identity.</p></div>
           </div>
           <DialogFooter><Button onClick={handleUpdateRecord} className="w-full bg-secondary py-8 rounded-2xl font-black uppercase tracking-widest shadow-xl">Commit Rectification</Button></DialogFooter>
