@@ -11,8 +11,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        headline: ['Orbitron', 'sans-serif'],
-        body: ['Montserrat', 'sans-serif'],
+        headline: ['var(--font-headline)', 'sans-serif'],
+        body: ['var(--font-body)', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
