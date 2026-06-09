@@ -47,6 +47,39 @@ import {
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
+function getAuthErrorMessage(error: any): string {
+  switch (error?.code) {
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return "Incorrect email or password.";
+    case 'auth/email-already-in-use':
+      return "This email is already registered. Try logging in instead.";
+    case 'auth/weak-password':
+      return "Password must be at least 6 characters.";
+    case 'auth/invalid-email':
+      return "Invalid email address format.";
+    case 'auth/too-many-requests':
+      return "Too many failed attempts. Try again later or reset your password.";
+    case 'auth/network-request-failed':
+      return "Network error. Check your internet connection and try again.";
+    case 'auth/popup-closed-by-user':
+      return "Sign-in popup was closed. Please try again.";
+    case 'auth/popup-blocked':
+      return "Popup was blocked by your browser. Allow popups for this site and retry.";
+    case 'auth/cancelled-popup-request':
+      return "Another sign-in popup is already open.";
+    case 'auth/internal-error':
+      return "Firebase internal error. Make sure Email/Password and Google sign-in are enabled in the Firebase Console under Authentication → Sign-in method.";
+    case 'auth/operation-not-allowed':
+      return "This sign-in method is not enabled. Enable it in Firebase Console → Authentication → Sign-in method.";
+    case 'auth/unauthorized-domain':
+      return "This domain is not authorized in Firebase Console. Add it under Authentication → Settings → Authorized domains.";
+    default:
+      return error?.message || "Authentication failed. Please try again.";
+  }
+}
+
 export default function Home() {
   const { auth } = useAuth();
   const { firestore } = useFirestore();
@@ -101,8 +134,8 @@ export default function Home() {
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Security Violation",
-        description: error.message || "Invalid credentials or unauthorized attempt.",
+        title: "Authentication Failed",
+        description: getAuthErrorMessage(error),
       });
     } finally {
       setIsAuthenticating(false);
@@ -146,7 +179,7 @@ export default function Home() {
       toast({
         variant: "destructive",
         title: "Google Auth Failed",
-        description: error.message || "Could not complete Google authentication.",
+        description: getAuthErrorMessage(error),
       });
     } finally {
       setIsAuthenticating(false);
@@ -348,7 +381,7 @@ export default function Home() {
   // 4. MAIN PORTAL ROUTING (VERIFIED ROLE)
   return (
     <div className="min-h-screen bg-background text-foreground animate-in fade-in duration-1000">
-      <header className="sticky top-0 z-50 glass-morphism border-b border-border px-6 py-4 flex justify-between items-center bg-white/80 shadow-sm backdrop-blur-xl">
+      <header className="sticky top-0 z-50 glass-morphism border-b border-border px-4 py-3 md:px-6 md:py-4 flex justify-between items-center bg-white/80 shadow-sm backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
             <Zap className="text-primary-foreground fill-primary-foreground" size={20} />
@@ -393,7 +426,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="p-6">
+      <main className="p-3 md:p-6">
         <div className="max-w-7xl mx-auto">
           {profile?.role === 'admin' ? (
             <AdminDashboard />

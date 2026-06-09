@@ -90,6 +90,10 @@ export function SellerPortal() {
   const [editDate, setEditDate] = useState<Date>(new Date());
   const [isEditDateOpen, setIsEditDateOpen] = useState(false);
 
+  // Stock edit state
+  const [editingStockId, setEditingStockId] = useState<string | null>(null);
+  const [editStockValue, setEditStockValue] = useState("");
+
   // Manual Past Entry State (Ledger tab)
   const [isPastEntryOpen, setIsPastEntryOpen] = useState(false);
   const [pastEntryDate, setPastEntryDate] = useState<Date>(new Date());
@@ -382,6 +386,23 @@ export function SellerPortal() {
       });
   };
 
+  const handleUpdateStock = (productId: string) => {
+    if (!firestore || editStockValue === "") return;
+    updateDoc(doc(firestore, "products", productId), {
+      stock: parseInt(editStockValue) || 0
+    })
+      .then(() => {
+        toast({ title: "Stock Updated", description: "Inventory level saved." });
+        setEditingStockId(null);
+        setEditStockValue("");
+      })
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({
+          path: `products/${productId}`, operation: "update"
+        }));
+      });
+  };
+
   const handleAddPastEntry = async () => {
     if (!firestore || !user || !pastEntryAmount || !pastEntryDesc) return;
     const isSale = pastEntryType === "sale";
@@ -479,26 +500,26 @@ export function SellerPortal() {
   }, [viewingAudit, sellerSales, sellerExpenses]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-6 mb-4 md:mb-8">
         <div>
-          <h2 className="text-2xl font-black font-headline tracking-tighter uppercase flex items-center gap-3">
-            <Zap className="text-primary fill-primary" />
+          <h2 className="text-xl md:text-2xl font-black font-headline tracking-tighter uppercase flex items-center gap-2">
+            <Zap className="text-primary fill-primary" size={20} />
             {lang === "bn" ? "বিক্রেতা পোর্টাল" : "SELLER POS CORE"}
           </h2>
-          <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.2em] mt-1">Operational Intelligence Node</p>
+          <p className="text-muted-foreground text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-1">Operational Intelligence Node</p>
         </div>
 
         <div className="flex flex-col md:flex-row items-end gap-4 w-full md:w-auto">
-          <Card className="glass-morphism w-full md:w-64 px-5 py-4 rounded-2xl border-none shadow-lg space-y-3">
+          <Card className="glass-morphism w-full md:w-64 px-4 py-3 rounded-2xl border-none shadow-lg space-y-2">
              <div className="flex justify-between items-center">
-                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                  <Target size={12} className="text-primary" /> {t.dailyMission}
+                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                  <Target size={11} className="text-primary" /> {t.dailyMission}
                 </p>
                 <span className="text-[10px] font-black text-primary">{targetStats.progress}%</span>
              </div>
-             <div className="h-2.5 bg-muted rounded-full overflow-hidden border border-border">
-                <div 
+             <div className="h-2 bg-muted rounded-full overflow-hidden border border-border">
+                <div
                   className="h-full bg-primary transition-all duration-1000 ease-out"
                   style={{ width: `${targetStats.progress}%` }}
                 />
@@ -508,44 +529,48 @@ export function SellerPortal() {
              </p>
           </Card>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <Card className="glass-morphism flex-1 md:flex-none px-6 py-3 flex items-center gap-4 rounded-2xl border-none shadow-lg">
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <Card className="glass-morphism flex-1 md:flex-none px-4 py-2.5 flex items-center gap-3 rounded-2xl border-none shadow-lg">
               <div className="text-right">
                 <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{t.performance}</p>
-                <p className="text-xl font-black text-primary tracking-tighter">৳{stats.todayTotal.toLocaleString()}</p>
+                <p className="text-lg md:text-xl font-black text-primary tracking-tighter">৳{stats.todayTotal.toLocaleString()}</p>
               </div>
-              <div className="w-px h-8 bg-border" />
+              <div className="w-px h-7 bg-border" />
               <div className="text-right">
                 <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">TXNS</p>
-                <p className="text-xl font-black text-foreground tracking-tighter">{stats.todayCount}</p>
+                <p className="text-lg md:text-xl font-black text-foreground tracking-tighter">{stats.todayCount}</p>
               </div>
             </Card>
-            
-            <Button variant="outline" size="sm" onClick={() => setLang(lang === "bn" ? "en" : "bn")} className="rounded-2xl font-black text-[10px] uppercase border-border h-12 px-6">
-              {lang === "bn" ? "English" : "বাংলা"}
+
+            <Button variant="outline" size="sm" onClick={() => setLang(lang === "bn" ? "en" : "bn")} className="rounded-2xl font-black text-[9px] uppercase border-border h-10 px-4 shrink-0">
+              {lang === "bn" ? "EN" : "বাং"}
             </Button>
           </div>
         </div>
       </div>
 
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-muted border border-border p-1 h-14 rounded-2xl">
-          <TabsTrigger value="sales" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <ShoppingCart className="mr-2" size={16} /> {t.sales}
+        <TabsList className="grid w-full grid-cols-4 bg-muted border border-border p-1 h-12 md:h-14 rounded-2xl">
+          <TabsTrigger value="sales" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex flex-col md:flex-row items-center gap-0.5 md:gap-2 py-1">
+            <ShoppingCart size={15} />
+            <span className="leading-none">{lang === "bn" ? "বিক্রি" : "Sales"}</span>
           </TabsTrigger>
-          <TabsTrigger value="expenses" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Banknote className="mr-2" size={16} /> {t.expenses}
+          <TabsTrigger value="expenses" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex flex-col md:flex-row items-center gap-0.5 md:gap-2 py-1">
+            <Banknote size={15} />
+            <span className="leading-none">{lang === "bn" ? "খরচ" : "Expense"}</span>
           </TabsTrigger>
-          <TabsTrigger value="inventory" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Package className="mr-2" size={16} /> {t.inventory}
+          <TabsTrigger value="inventory" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex flex-col md:flex-row items-center gap-0.5 md:gap-2 py-1">
+            <Package size={15} />
+            <span className="leading-none">{lang === "bn" ? "স্টক" : "Stock"}</span>
           </TabsTrigger>
-          <TabsTrigger value="ledger" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <History className="mr-2" size={16} /> {t.ledger}
+          <TabsTrigger value="ledger" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex flex-col md:flex-row items-center gap-0.5 md:gap-2 py-1">
+            <History size={15} />
+            <span className="leading-none">{lang === "bn" ? "হিসাব" : "Ledger"}</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             <div className="lg:col-span-2 space-y-6">
               <Card className="glass-morphism border-t-4 border-primary">
                 <CardHeader><CardTitle className="text-xs font-black uppercase tracking-[0.2em]">{t.quickAdd}</CardTitle></CardHeader>
@@ -569,10 +594,10 @@ export function SellerPortal() {
                   {productsLoading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" size={32} /></div> : (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {products?.map((prod: any) => (
-                        <Button key={prod.id} variant="ghost" onClick={() => handleProductSelect(prod)} className="h-32 flex flex-col border border-border hover:border-primary hover:bg-primary/5 rounded-2xl shadow-sm group">
-                          <Package size={20} className="text-primary mb-2" />
-                          <span className="text-[10px] font-black uppercase">{prod.name}</span>
-                          <span className="text-[12px] font-black text-primary mt-1">৳{prod.price}</span>
+                        <Button key={prod.id} variant="ghost" onClick={() => handleProductSelect(prod)} className="h-24 md:h-32 flex flex-col border border-border hover:border-primary hover:bg-primary/5 rounded-2xl shadow-sm group p-2">
+                          <Package size={16} className="text-primary mb-1.5 md:mb-2 shrink-0" />
+                          <span className="text-[9px] md:text-[10px] font-black uppercase leading-tight text-center line-clamp-2">{prod.name}</span>
+                          <span className="text-[11px] md:text-[12px] font-black text-primary mt-1">৳{prod.price}</span>
                         </Button>
                       ))}
                     </div>
@@ -581,10 +606,10 @@ export function SellerPortal() {
               </Card>
             </div>
 
-            <Card className="glass-morphism border-t-4 border-secondary flex flex-col h-full shadow-2xl">
-              <CardHeader><CardTitle className="text-lg font-black uppercase tracking-widest flex justify-between">{t.cart} <span className="text-[10px] bg-secondary/10 text-secondary px-3 py-1 rounded-full">{cart.length} ITEMS</span></CardTitle></CardHeader>
-              <CardContent className="space-y-4 flex-1">
-                <div className="max-h-[450px] overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+            <Card className="glass-morphism border-t-4 border-secondary flex flex-col shadow-2xl">
+              <CardHeader className="py-3 md:py-4"><CardTitle className="text-base md:text-lg font-black uppercase tracking-widest flex justify-between items-center">{t.cart} <span className="text-[10px] bg-secondary/10 text-secondary px-3 py-1 rounded-full">{cart.length} ITEMS</span></CardTitle></CardHeader>
+              <CardContent className="space-y-3 flex-1">
+                <div className="max-h-[280px] md:max-h-[450px] overflow-y-auto space-y-3 pr-2 scrollbar-hide">
                   {cart.map((item, idx) => (
                     <div key={item.id} className="bg-muted/40 p-4 rounded-xl border border-border">
                       <div className="flex justify-between items-start mb-2">
@@ -608,11 +633,11 @@ export function SellerPortal() {
                     </div>
                   ))}
                 </div>
-                <div className="border-t pt-6 space-y-4">
-                  <div className="flex justify-between text-2xl font-black tracking-tighter">
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex justify-between text-xl md:text-2xl font-black tracking-tighter">
                     <span>{t.total}</span><span className="text-primary">৳{cart.reduce((a, b) => a + b.price * b.qty, 0).toLocaleString()}</span>
                   </div>
-                  <Button className="w-full bg-primary py-8 rounded-2xl shadow-xl font-black uppercase tracking-widest" disabled={cart.length === 0} onClick={handleCheckout}>{t.checkout}</Button>
+                  <Button className="w-full bg-primary py-6 md:py-8 rounded-2xl shadow-xl font-black uppercase tracking-widest" disabled={cart.length === 0} onClick={handleCheckout}>{t.checkout}</Button>
                 </div>
               </CardContent>
             </Card>
@@ -754,11 +779,45 @@ export function SellerPortal() {
               <CardContent className="p-0">
                 <div className="max-h-[500px] overflow-y-auto">
                   {products?.map((p: any) => (
-                    <div key={p.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-muted/50 transition-colors">
-                      <div><p className="text-sm font-black uppercase">{p.name}</p><p className="text-[10px] font-bold text-muted-foreground uppercase">{p.category}</p></div>
-                      <div className="flex items-center gap-6"><p className="text-sm font-black text-primary">৳{p.price}</p><Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive h-10 w-10"><Trash2 size={16} /></Button></div>
+                    <div key={p.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-muted/50 transition-colors gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black uppercase truncate">{p.name}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{p.category}</p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {editingStockId === p.id ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={editStockValue}
+                              onChange={(e) => setEditStockValue(e.target.value)}
+                              className="w-20 h-8 text-[10px] font-black bg-white"
+                              autoFocus
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateStock(p.id); if (e.key === 'Escape') setEditingStockId(null); }}
+                            />
+                            <Button size="sm" onClick={() => handleUpdateStock(p.id)} className="h-8 text-[9px] bg-primary font-black uppercase px-3">Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingStockId(null)} className="h-8 text-[9px] font-black uppercase px-2">✕</Button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingStockId(p.id); setEditStockValue(String(p.stock ?? 0)); }}
+                            className={`text-[9px] font-black uppercase border px-2 py-1 rounded-lg transition-colors ${
+                              (p.stock ?? 0) === 0
+                                ? 'text-destructive border-destructive/30 bg-destructive/5 hover:bg-destructive/10'
+                                : 'text-muted-foreground border-border/50 hover:border-primary/50 hover:text-primary'
+                            }`}
+                          >
+                            Stock: {p.stock ?? 0}
+                          </button>
+                        )}
+                        <p className="text-sm font-black text-primary">৳{p.price}</p>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive h-10 w-10"><Trash2 size={16} /></Button>
+                      </div>
                     </div>
                   ))}
+                  {!products?.length && (
+                    <p className="text-center py-12 text-[10px] uppercase font-bold text-muted-foreground">No products in catalog. Add one to get started.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

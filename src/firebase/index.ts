@@ -26,12 +26,12 @@ export function initializeFirebase(): {
   auth: Auth;
   db: Firestore;
 } {
-  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  const isFirstInit = getApps().length === 0;
+  const app = isFirstInit ? initializeApp(firebaseConfig) : getApp();
   const auth = getAuth(app);
-  
-  // Use initializeFirestore to enable persistent cache for "save locally" functionality
+
   let db: Firestore;
-  if (getApps().length === 0) {
+  if (isFirstInit) {
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),

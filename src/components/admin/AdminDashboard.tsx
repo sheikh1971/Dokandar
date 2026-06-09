@@ -103,6 +103,22 @@ export function AdminDashboard() {
   // Guard to prevent multiple overhead additions in one session
   const [hasCheckedOverheads, setHasCheckedOverheads] = useState(false);
 
+  // Product edit state
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editProductName, setEditProductName] = useState("");
+  const [editProductPrice, setEditProductPrice] = useState("");
+  const [editProductStock, setEditProductStock] = useState("");
+
+  // Manual Joma entry state
+  const [jomaSellerName, setJomaSellerName] = useState("");
+  const [jomaAmount, setJomaAmount] = useState("");
+  const [jomaDate, setJomaDate] = useState<Date>(new Date());
+  const [isJomaDateOpen, setIsJomaDateOpen] = useState(false);
+  const [isJomaSubmitting, setIsJomaSubmitting] = useState(false);
+
+  // Transaction search
+  const [searchQuery, setSearchQuery] = useState("");
+
   const { firestore } = useFirestore();
   const { user } = useUser();
 
@@ -375,6 +391,47 @@ export function AdminDashboard() {
       });
   };
 
+  const handleUpdateProduct = () => {
+    if (!firestore || !editingProduct || !editProductName || !editProductPrice) return;
+    const updates = {
+      name: editProductName,
+      price: parseFloat(editProductPrice) || 0,
+      stock: parseInt(editProductStock) || 0,
+    };
+    updateDoc(doc(firestore, "products", editingProduct.id), updates)
+      .then(() => {
+        toast({ title: "Product Updated", description: `${editProductName} catalog entry refreshed.` });
+        setEditingProduct(null);
+      })
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({ path: `products/${editingProduct.id}`, operation: "update", requestResourceData: updates }));
+      });
+  };
+
+  const handleAddJomaRecord = async () => {
+    if (!firestore || !jomaAmount || !jomaSellerName) return;
+    setIsJomaSubmitting(true);
+    const jomaData = {
+      joma: parseFloat(jomaAmount),
+      cashbox: 0,
+      due: 0,
+      timestamp: Timestamp.fromDate(jomaDate),
+      sellerId: "admin-manual",
+      sellerName: jomaSellerName,
+      addedByAdmin: true
+    };
+    addDoc(collection(firestore, "account_logs"), jomaData)
+      .then(() => {
+        toast({ title: "Joma Recorded", description: "Deposit logged to account ledger." });
+        setJomaSellerName("");
+        setJomaAmount("");
+      })
+      .catch(async () => {
+        errorEmitter.emit("permission-error", new FirestorePermissionError({ path: "account_logs", operation: "create", requestResourceData: jomaData }));
+      })
+      .finally(() => setIsJomaSubmitting(false));
+  };
+
   const handleGenerateAI = async () => {
     setIsAiLoading(true);
     try {
@@ -388,28 +445,29 @@ export function AdminDashboard() {
   };
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-4 md:space-y-6 pb-12 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <ShieldCheck className="text-secondary" size={20} />
-            <h2 className="text-2xl font-black font-headline tracking-tighter uppercase">SUPER ADMIN <span className="text-primary">COMMAND CENTER</span></h2>
+            <ShieldCheck className="text-secondary shrink-0" size={18} />
+            <h2 className="text-lg md:text-2xl font-black font-headline tracking-tighter uppercase">SUPER ADMIN <span className="text-primary">COMMAND CENTER</span></h2>
           </div>
-          <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">Global Shop Forensics & Supply Intelligence</p>
+          <p className="text-muted-foreground text-[9px] md:text-xs font-bold uppercase tracking-widest">Global Shop Forensics & Supply Intelligence</p>
         </div>
-        
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-2 w-full md:w-auto">
           <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
-            <SelectTrigger className="w-[140px] h-10 rounded-2xl border-border bg-muted font-black text-[10px] uppercase"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="weekly">Weekly Analysis</SelectItem><SelectItem value="monthly">Monthly Cycle</SelectItem><SelectItem value="yearly">Annual Overview</SelectItem><SelectItem value="all">Full History</SelectItem></SelectContent>
+            <SelectTrigger className="flex-1 md:flex-none md:w-[140px] h-10 rounded-2xl border-border bg-muted font-black text-[10px] uppercase"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="weekly">Weekly</SelectItem><SelectItem value="monthly">Monthly</SelectItem><SelectItem value="yearly">Yearly</SelectItem><SelectItem value="all">All Time</SelectItem></SelectContent>
           </Select>
-          <Button className="bg-primary text-primary-foreground font-black shadow-lg rounded-2xl h-10 px-6 uppercase tracking-widest text-[10px]" onClick={handleGenerateAI} disabled={isAiLoading}>
-            <BrainCircuit className="mr-2" size={16} /> {isAiLoading ? "Processing..." : "Neural Forecast"}
+          <Button className="bg-primary text-primary-foreground font-black shadow-lg rounded-2xl h-10 px-4 md:px-6 uppercase tracking-widest text-[10px] shrink-0" onClick={handleGenerateAI} disabled={isAiLoading}>
+            <BrainCircuit size={16} className="md:mr-2" />
+            <span className="hidden md:inline">{isAiLoading ? "Processing..." : "Neural Forecast"}</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard title="Revenue In" value={`৳${stats.totalRevenue.toLocaleString()}`} trend="up" icon={<DollarSign size={20} />} color="primary" />
         <div onClick={() => setIsBurnDetailOpen(true)} className="cursor-pointer">
           <StatCard title="Operational Burn" value={`৳${stats.totalExpenses.toLocaleString()}`} trend="down" icon={<TrendingDown size={20} />} color="destructive" />
@@ -425,21 +483,23 @@ export function AdminDashboard() {
         />
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-muted border border-border p-1 h-12 rounded-2xl grid grid-cols-6 w-full md:w-[1100px]">
-          <TabsTrigger value="overview" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Intelligence</TabsTrigger>
-          <TabsTrigger value="inventory" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Inventory</TabsTrigger>
-          <TabsTrigger value="history" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Transactions</TabsTrigger>
-          <TabsTrigger value="buy_joma" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Buy & Joma</TabsTrigger>
-          <TabsTrigger value="closing" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Closing Ledger</TabsTrigger>
-          <TabsTrigger value="overheads" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Overheads</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
+        <div className="overflow-x-auto w-full pb-1 -mx-0">
+          <TabsList className="bg-muted border border-border p-1 h-11 md:h-12 rounded-2xl inline-flex w-max min-w-full gap-0.5">
+            <TabsTrigger value="overview" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Analytics</TabsTrigger>
+            <TabsTrigger value="inventory" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Inventory</TabsTrigger>
+            <TabsTrigger value="history" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Transactions</TabsTrigger>
+            <TabsTrigger value="buy_joma" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Buy & Joma</TabsTrigger>
+            <TabsTrigger value="closing" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Ledger</TabsTrigger>
+            <TabsTrigger value="overheads" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Overheads</TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <TabsContent value="overview" className="space-y-4 md:space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             <Card className="lg:col-span-2 glass-morphism border-t-4 border-primary">
               <CardHeader><CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Business Scenario Analysis</CardTitle></CardHeader>
-              <CardContent className="h-[400px] pt-4">
+              <CardContent className="h-[240px] md:h-[400px] pt-4">
                 <ChartContainer config={{ 
                   sales: { label: "Revenue In (Sales)", color: "hsl(var(--primary))" },
                   expenses: { label: "Total Outflow (Burn)", color: "hsl(var(--destructive))" },
@@ -469,8 +529,8 @@ export function AdminDashboard() {
           </div>
         </TabsContent>
 
-        <TabsContent value="inventory" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <TabsContent value="inventory" className="space-y-4 md:space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             <Card className="glass-morphism border-t-4 border-primary shadow-xl">
               <CardHeader><CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Add Product</CardTitle></CardHeader>
               <CardContent className="space-y-4">
@@ -484,11 +544,22 @@ export function AdminDashboard() {
               <CardContent className="p-0">
                 <div className="max-h-[500px] overflow-y-auto">
                   {products?.map((p: any) => (
-                    <div key={p.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-muted/50 transition-colors">
-                      <div><p className="text-sm font-black uppercase">{p.name}</p><p className="text-[10px] font-bold text-muted-foreground uppercase">{p.category}</p></div>
-                      <div className="flex items-center gap-6"><p className="text-sm font-black text-primary">৳{p.price}</p><Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive h-10 w-10"><Trash2 size={16} /></Button></div>
+                    <div key={p.id} className="flex justify-between items-center p-4 border-b border-border/30 hover:bg-muted/50 transition-colors gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black uppercase truncate">{p.name}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase">{p.category}</p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={`text-[9px] font-black uppercase border px-2 py-1 rounded-lg ${(p.stock ?? 0) === 0 ? 'text-destructive border-destructive/30 bg-destructive/5' : 'text-muted-foreground border-border/50'}`}>
+                          Stock: {p.stock ?? 0}
+                        </span>
+                        <p className="text-sm font-black text-primary">৳{p.price}</p>
+                        <Button variant="ghost" size="icon" onClick={() => { setEditingProduct(p); setEditProductName(p.name); setEditProductPrice(String(p.price)); setEditProductStock(String(p.stock ?? 0)); }} className="text-secondary h-10 w-10"><Edit3 size={16} /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)} className="text-destructive h-10 w-10"><Trash2 size={16} /></Button>
+                      </div>
                     </div>
                   ))}
+                  {!products?.length && <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No products. Add one above.</p>}
                 </div>
               </CardContent>
             </Card>
@@ -497,7 +568,18 @@ export function AdminDashboard() {
 
         <TabsContent value="history" className="space-y-6">
           <Card className="glass-morphism">
-            <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 py-4"><div><CardTitle className="text-sm font-black uppercase tracking-widest">Transaction Forensic Log</CardTitle></div><TableIcon className="text-muted-foreground/30" size={24} /></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 py-4 gap-4">
+              <CardTitle className="text-sm font-black uppercase tracking-widest shrink-0">Transaction Forensic Log</CardTitle>
+              <div className="relative flex-1 max-w-xs">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search seller, description..."
+                  className="pl-8 h-9 text-[10px] font-black bg-muted border-border rounded-xl"
+                />
+              </div>
+            </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[600px] overflow-y-auto">
                 <Tabs defaultValue="all_sales">
@@ -508,7 +590,11 @@ export function AdminDashboard() {
                      </TabsList>
                    </div>
                    <TabsContent value="all_sales" className="mt-0">
-                     {stats.sales.map((sale: any) => (
+                     {stats.sales.filter(sale =>
+                       !searchQuery ||
+                       (sale.sellerName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       sale.id.toLowerCase().includes(searchQuery.toLowerCase())
+                     ).map((sale: any) => (
                         <div key={sale.id} className="p-6 border-b border-border/30 hover:bg-muted/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center"><History className="text-secondary" size={20} /></div>
@@ -525,9 +611,16 @@ export function AdminDashboard() {
                           </div>
                         </div>
                       ))}
+                     {stats.sales.filter(sale => !searchQuery || (sale.sellerName || "").toLowerCase().includes(searchQuery.toLowerCase()) || sale.id.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                       <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No sales match your search.</p>
+                     )}
                    </TabsContent>
                    <TabsContent value="all_expenses" className="mt-0">
-                     {stats.expenses.map((exp: any) => (
+                     {stats.expenses.filter(exp =>
+                       !searchQuery ||
+                       (exp.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       (exp.category || "").toLowerCase().includes(searchQuery.toLowerCase())
+                     ).map((exp: any) => (
                         <div key={exp.id} className="p-6 border-b border-border/30 hover:bg-muted/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center"><Banknote className="text-destructive" size={20} /></div>
@@ -545,6 +638,9 @@ export function AdminDashboard() {
                           </div>
                         </div>
                       ))}
+                     {stats.expenses.filter(exp => !searchQuery || (exp.description || "").toLowerCase().includes(searchQuery.toLowerCase()) || (exp.category || "").toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                       <p className="text-center py-10 text-[10px] uppercase font-bold text-muted-foreground">No expenses match your search.</p>
+                     )}
                    </TabsContent>
                 </Tabs>
               </div>
@@ -552,8 +648,8 @@ export function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="buy_joma" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <TabsContent value="buy_joma" className="space-y-4 md:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <Card className="glass-morphism border-t-4 border-primary shadow-xl">
               <CardHeader className="flex flex-row items-center justify-between border-b bg-primary/5 py-4">
                 <div>
@@ -563,11 +659,47 @@ export function AdminDashboard() {
                 <Coins className="text-primary/30" size={24} />
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="text-center py-6 border-b border-border mb-6">
+                <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 mb-6 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PlusCircle className="text-primary" size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Manual Joma Entry</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black uppercase text-muted-foreground">Seller / Name</Label>
+                      <Input value={jomaSellerName} onChange={(e) => setJomaSellerName(e.target.value)} placeholder="Seller name" className="h-10 rounded-xl bg-white/50 font-black text-[10px]" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black uppercase text-muted-foreground">Amount (৳)</Label>
+                      <Input type="number" value={jomaAmount} onChange={(e) => setJomaAmount(e.target.value)} placeholder="0.00" className="h-10 rounded-xl bg-white/50 font-black text-[10px] text-primary" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[8px] font-black uppercase text-muted-foreground">Entry Date</Label>
+                    <div className="flex gap-2">
+                      <Popover open={isJomaDateOpen} onOpenChange={setIsJomaDateOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="flex-1 justify-start text-left font-bold h-10 rounded-xl bg-white/50 border-border text-[10px]">
+                            <CalendarIcon className="mr-2 h-3 w-3" />
+                            {format(jomaDate, "PP")}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar mode="single" selected={jomaDate} onSelect={(d) => { if (d) { setJomaDate(d); setIsJomaDateOpen(false); } }} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                      <Button onClick={handleAddJomaRecord} disabled={isJomaSubmitting} className="bg-primary h-10 font-black uppercase text-[10px] px-6 rounded-xl">
+                        {isJomaSubmitting ? <Loader2 className="animate-spin h-3 w-3" /> : "Commit"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-center py-4 border-b border-border mb-4">
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Aggregate Joma Inflow</p>
                   <h3 className="text-4xl font-black text-primary tracking-tighter">৳{stats.totalJoma.toLocaleString()}</h3>
                 </div>
-                <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
+                <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
                   {stats.logs.map((log: any) => (
                     <div key={log.id} className="flex justify-between items-center p-4 rounded-xl border border-border/30 hover:bg-primary/5 transition-all group">
                       <div className="flex items-center gap-3">
@@ -575,7 +707,10 @@ export function AdminDashboard() {
                           <Clock size={16} />
                         </div>
                         <div>
-                          <p className="text-xs font-black uppercase tracking-tight">{log.sellerName}</p>
+                          <p className="text-xs font-black uppercase tracking-tight flex items-center gap-2">
+                            {log.sellerName}
+                            {log.addedByAdmin && <span className="text-[8px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full border border-secondary/20">ADMIN</span>}
+                          </p>
                           <p className="text-[9px] font-bold text-muted-foreground uppercase">{log.timestamp?.toDate()?.toLocaleString()}</p>
                         </div>
                       </div>
@@ -585,6 +720,7 @@ export function AdminDashboard() {
                       </div>
                     </div>
                   ))}
+                  {!stats.logs.length && <p className="text-center py-6 text-[10px] uppercase font-bold text-muted-foreground">No deposits recorded.</p>}
                 </div>
               </CardContent>
             </Card>
@@ -934,6 +1070,38 @@ export function AdminDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={!!editingProduct} onOpenChange={() => setEditingProduct(null)}>
+        <DialogContent className="glass-morphism border-t-4 border-secondary max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <Edit3 className="text-secondary" size={18} /> Edit Product
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Product Name</Label>
+              <Input value={editProductName} onChange={(e) => setEditProductName(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Price (৳)</Label>
+                <Input type="number" value={editProductPrice} onChange={(e) => setEditProductPrice(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl text-primary" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Stock Qty</Label>
+                <Input type="number" value={editProductStock} onChange={(e) => setEditProductStock(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleUpdateProduct} className="w-full bg-secondary py-6 rounded-2xl font-black uppercase tracking-widest shadow-xl">
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -941,10 +1109,17 @@ export function AdminDashboard() {
 function StatCard({ title, value, subtitle, trend, icon, color }: any) {
   const colors: Record<string, string> = { primary: "text-primary border-primary/20", secondary: "text-secondary border-secondary/20", destructive: "text-destructive border-destructive/20", muted: "text-muted-foreground border-border/50" };
   return (
-    <Card className="glass-morphism p-6 group relative overflow-hidden transition-all hover:translate-y-[-4px] border-none shadow-lg">
-      <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}/5 rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-all duration-500`} />
-      <div className="flex justify-between items-start relative z-10"><div className={`p-2.5 rounded-xl ${colors[color]} bg-muted border shadow-inner`}>{icon}</div>{trend !== 'none' && <div className={`text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest ${trend === 'up' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{trend === 'up' ? 'Gain' : 'Loss'}</div>}</div>
-      <div className="mt-6 relative z-10"><p className="text-[8px] font-black text-muted-foreground tracking-[0.2em] uppercase mb-1">{title}</p><h3 className="text-2xl font-black tracking-tighter">{value}</h3>{subtitle && <p className="text-[8px] font-bold text-muted-foreground/50 uppercase mt-1">{subtitle}</p>}</div>
+    <Card className="glass-morphism p-4 md:p-6 group relative overflow-hidden transition-all hover:translate-y-[-4px] border-none shadow-lg">
+      <div className={`absolute top-0 right-0 w-20 h-20 md:w-24 md:h-24 bg-${color}/5 rounded-full -mr-10 -mt-10 md:-mr-12 md:-mt-12 group-hover:scale-150 transition-all duration-500`} />
+      <div className="flex justify-between items-start relative z-10">
+        <div className={`p-2 md:p-2.5 rounded-xl ${colors[color]} bg-muted border shadow-inner`}>{icon}</div>
+        {trend !== 'none' && <div className={`text-[7px] md:text-[8px] font-black px-1.5 md:px-2 py-0.5 md:py-1 rounded-full uppercase tracking-widest ${trend === 'up' ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{trend === 'up' ? 'Gain' : 'Loss'}</div>}
+      </div>
+      <div className="mt-3 md:mt-6 relative z-10">
+        <p className="text-[7px] md:text-[8px] font-black text-muted-foreground tracking-[0.2em] uppercase mb-0.5">{title}</p>
+        <h3 className="text-lg md:text-2xl font-black tracking-tighter truncate">{value}</h3>
+        {subtitle && <p className="text-[7px] md:text-[8px] font-bold text-muted-foreground/50 uppercase mt-0.5 leading-tight">{subtitle}</p>}
+      </div>
     </Card>
   );
 }
