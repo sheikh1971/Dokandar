@@ -116,6 +116,11 @@ export function AdminDashboard() {
   const [isJomaDateOpen, setIsJomaDateOpen] = useState(false);
   const [isJomaSubmitting, setIsJomaSubmitting] = useState(false);
 
+  // Admin record edit state
+  const [editingAdminRecord, setEditingAdminRecord] = useState<any>(null);
+  const [editAdminValue, setEditAdminValue] = useState("");
+  const [editAdminDesc, setEditAdminDesc] = useState("");
+
   // Transaction search
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -228,6 +233,7 @@ export function AdminDashboard() {
     const netProfit = totalRevenue - totalExpenses;
 
     const totalJoma = filteredLogs.reduce((acc, l) => acc + (Number(l.joma) || 0), 0);
+    const totalDue = filteredLogs.reduce((acc, l) => acc + (Number(l.due) || 0), 0);
     
     const buyCategories = ['procurement', 'buy', 'purchase', 'shopping', 'stock'];
     const totalBuy = filteredExpenses
@@ -268,16 +274,17 @@ export function AdminDashboard() {
 
     const chartData = Object.values(chartDataMap).sort((a, b) => a.name.localeCompare(b.name));
 
-    return { 
-      totalRevenue, 
-      totalExpenses, 
-      netProfit, 
-      totalJoma, 
+    return {
+      totalRevenue,
+      totalExpenses,
+      netProfit,
+      totalJoma,
+      totalDue,
       totalBuy,
-      sales: filteredSales, 
-      expenses: filteredExpenses, 
+      sales: filteredSales,
+      expenses: filteredExpenses,
       logs: filteredLogs,
-      chartData 
+      chartData
     };
   }, [rawSales, rawExpenses, accountLogs, period]);
 
@@ -297,6 +304,44 @@ export function AdminDashboard() {
     
     return { dailyTarget, todaySales, progress };
   }, [overheadConfigs, rawSales]);
+
+  // Per-day sales/expenses map for discrepancy calculation
+  const dailyTotals = useMemo(() => {
+    const map: Record<string, { sales: number; expenses: number }> = {};
+    (rawSales || []).forEach(s => {
+      if (!s.timestamp) return;
+      const key = format((s.timestamp as Timestamp).toDate(), 'yyyy-MM-dd');
+      if (!map[key]) map[key] = { sales: 0, expenses: 0 };
+      map[key].sales += Number(s.total) || 0;
+    });
+    (rawExpenses || []).forEach(e => {
+      if (!e.timestamp) return;
+      const key = format((e.timestamp as Timestamp).toDate(), 'yyyy-MM-dd');
+      if (!map[key]) map[key] = { sales: 0, expenses: 0 };
+      map[key].expenses += Number(e.amount) || 0;
+    });
+    return map;
+  }, [rawSales, rawExpenses]);
+
+  // Per-seller money summary
+  const sellerSummary = useMemo(() => {
+    const sellers: Record<string, { name: string; id: string; totalSales: number; salesCount: number; totalJoma: number; totalDue: number; totalCashbox: number; auditCount: number }> = {};
+    (rawSales || []).forEach(s => {
+      const id = s.sellerId || 'unknown';
+      if (!sellers[id]) sellers[id] = { name: s.sellerName || id, id, totalSales: 0, salesCount: 0, totalJoma: 0, totalDue: 0, totalCashbox: 0, auditCount: 0 };
+      sellers[id].totalSales += Number(s.total) || 0;
+      sellers[id].salesCount++;
+    });
+    (accountLogs || []).forEach(l => {
+      const id = l.sellerId || 'unknown';
+      if (!sellers[id]) sellers[id] = { name: l.sellerName || id, id, totalSales: 0, salesCount: 0, totalJoma: 0, totalDue: 0, totalCashbox: 0, auditCount: 0 };
+      sellers[id].totalJoma += Number(l.joma) || 0;
+      sellers[id].totalDue += Number(l.due) || 0;
+      sellers[id].totalCashbox += Number(l.cashbox) || 0;
+      sellers[id].auditCount++;
+    });
+    return Object.values(sellers).sort((a, b) => b.totalSales - a.totalSales);
+  }, [rawSales, accountLogs]);
 
   const auditDetailData = useMemo(() => {
     if (!viewingAudit || !rawSales || !rawExpenses) return { sales: [], expenses: [] };
@@ -432,6 +477,18 @@ export function AdminDashboard() {
       .finally(() => setIsJomaSubmitting(false));
   };
 
+  const handleAdminUpdateRecord = async () => {
+    if (!firestore || !editingAdminRecord || !editAdminValue || !user) return;
+    const type = editingAdminRecord.type === 'sale' ? 'sales' : 'expenses';
+    const ref = doc(firestore, type, editingAdminRecord.id);
+    const updates: any = { updatedAt: serverTimestamp(), updatedBy: user.email };
+    if (type === 'sales') updates.total = parseFloat(editAdminValue);
+    else { updates.amount = parseFloat(editAdminValue); if (editAdminDesc.trim()) updates.description = editAdminDesc.trim(); }
+    updateDoc(ref, updates)
+      .then(() => { toast({ title: "Record Updated" }); setEditingAdminRecord(null); })
+      .catch(async () => { errorEmitter.emit("permission-error", new FirestorePermissionError({ path: `${type}/${editingAdminRecord.id}`, operation: "update", requestResourceData: updates })); });
+  };
+
   const handleGenerateAI = async () => {
     setIsAiLoading(true);
     try {
@@ -467,19 +524,20 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
         <StatCard title="Revenue In" value={`৳${stats.totalRevenue.toLocaleString()}`} trend="up" icon={<DollarSign size={20} />} color="primary" />
         <div onClick={() => setIsBurnDetailOpen(true)} className="cursor-pointer">
           <StatCard title="Operational Burn" value={`৳${stats.totalExpenses.toLocaleString()}`} trend="down" icon={<TrendingDown size={20} />} color="destructive" />
         </div>
         <StatCard title="Liquidity" value={`৳${stats.netProfit.toLocaleString()}`} trend={stats.netProfit >= 0 ? "up" : "down"} icon={<TrendingUp size={20} />} color="secondary" />
-        <StatCard 
-          title="Target Efficiency" 
-          value={`${targetStats.progress}%`} 
+        <StatCard title="Outstanding Due" value={`৳${stats.totalDue.toLocaleString()}`} subtitle="Total owed by customers" trend="none" icon={<AlertTriangle size={20} />} color={stats.totalDue > 0 ? "destructive" : "muted"} />
+        <StatCard
+          title="Target Efficiency"
+          value={`${targetStats.progress}%`}
           subtitle={`৳${targetStats.todaySales.toLocaleString()} / ৳${Math.round(targetStats.dailyTarget).toLocaleString()} Goal`}
-          trend={targetStats.progress >= 100 ? "up" : "none"} 
-          icon={<Target size={20} />} 
-          color={targetStats.progress >= 100 ? "primary" : "secondary"} 
+          trend={targetStats.progress >= 100 ? "up" : "none"}
+          icon={<Target size={20} />}
+          color={targetStats.progress >= 100 ? "primary" : "secondary"}
         />
       </div>
 
@@ -492,6 +550,7 @@ export function AdminDashboard() {
             <TabsTrigger value="buy_joma" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Buy & Joma</TabsTrigger>
             <TabsTrigger value="closing" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Ledger</TabsTrigger>
             <TabsTrigger value="overheads" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Overheads</TabsTrigger>
+            <TabsTrigger value="sellers" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Sellers</TabsTrigger>
           </TabsList>
         </div>
 
@@ -605,9 +664,10 @@ export function AdminDashboard() {
                               <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><UserIcon size={10} /> {sale.sellerName} | <Clock size={10} /> {sale.timestamp?.toDate()?.toLocaleString()}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-3">
                             <p className="text-lg font-black text-primary tracking-tighter">৳{(Number(sale.total) || 0).toLocaleString()}</p>
-                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRecord('sales', sale.id)} className="text-destructive"><Trash2 size={16} /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => { setEditingAdminRecord({ ...sale, type: 'sale' }); setEditAdminValue(String(sale.total || '')); setEditAdminDesc(''); }} className="text-secondary h-9 w-9"><Edit3 size={15} /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRecord('sales', sale.id)} className="text-destructive h-9 w-9"><Trash2 size={15} /></Button>
                           </div>
                         </div>
                       ))}
@@ -632,9 +692,10 @@ export function AdminDashboard() {
                               <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><Tags size={10} /> {exp.category} | <Clock size={10} /> {exp.timestamp?.toDate()?.toLocaleString()}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-3">
                             <p className="text-lg font-black text-destructive tracking-tighter">৳{(Number(exp.amount) || 0).toLocaleString()}</p>
-                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRecord('expenses', exp.id)} className="text-destructive"><Trash2 size={16} /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => { setEditingAdminRecord({ ...exp, type: 'expense' }); setEditAdminValue(String(exp.amount || '')); setEditAdminDesc(exp.description || ''); }} className="text-secondary h-9 w-9"><Edit3 size={15} /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRecord('expenses', exp.id)} className="text-destructive h-9 w-9"><Trash2 size={15} /></Button>
                           </div>
                         </div>
                       ))}
@@ -815,9 +876,16 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[600px] overflow-y-auto">
-                {accountLogs?.map((log: any) => (
-                  <div 
-                    key={log.id} 
+                {accountLogs?.map((log: any) => {
+                  const dayKey = log.timestamp ? format((log.timestamp as Timestamp).toDate(), 'yyyy-MM-dd') : null;
+                  const dayData = dayKey ? dailyTotals[dayKey] : null;
+                  const systemNet = dayData ? dayData.sales - dayData.expenses : null;
+                  const reportedTotal = (Number(log.cashbox) || 0) + (Number(log.joma) || 0);
+                  const discrepancy = systemNet !== null ? systemNet - reportedTotal : null;
+                  const hasGap = discrepancy !== null && Math.abs(discrepancy) > 1;
+                  return (
+                  <div
+                    key={log.id}
                     onClick={() => setViewingAudit(log)}
                     className="p-6 border-b border-border/30 hover:bg-secondary/5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer group relative overflow-hidden"
                   >
@@ -827,7 +895,17 @@ export function AdminDashboard() {
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center"><Wallet className="text-secondary" size={20} /></div>
                       <div>
-                        <p className="text-sm font-black uppercase tracking-tight">Closing Audit Report</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-black uppercase tracking-tight">Closing Audit Report</p>
+                          {hasGap && (
+                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${discrepancy! < 0 ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>
+                              {discrepancy! < 0 ? `SHORT ৳${Math.abs(discrepancy!).toLocaleString()}` : `EXCESS ৳${discrepancy!.toLocaleString()}`}
+                            </span>
+                          )}
+                          {!hasGap && discrepancy !== null && (
+                            <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">BALANCED</span>
+                          )}
+                        </div>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5"><UserIcon size={10} /> {log.sellerName} | <Clock size={10} /> {log.timestamp?.toDate()?.toLocaleString()}</p>
                       </div>
                     </div>
@@ -846,7 +924,76 @@ export function AdminDashboard() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sellers" className="space-y-6">
+          <Card className="glass-morphism border-t-4 border-primary shadow-xl overflow-hidden">
+            <CardHeader className="border-b bg-primary/5 py-4">
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Users size={16} className="text-primary" /> Seller Money Report
+              </CardTitle>
+              <CardDescription className="text-[10px] font-bold uppercase mt-1">All-time breakdown per seller — sales, deposits, outstanding dues</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-[10px] font-black uppercase">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="text-left p-4 tracking-widest text-muted-foreground">Seller</th>
+                      <th className="text-right p-4 tracking-widest text-primary">Sales</th>
+                      <th className="text-right p-4 tracking-widest text-primary">Txns</th>
+                      <th className="text-right p-4 tracking-widest text-secondary">Joma (Deposited)</th>
+                      <th className="text-right p-4 tracking-widest text-destructive">Due (Owed)</th>
+                      <th className="text-right p-4 tracking-widest text-muted-foreground">Cashbox Reported</th>
+                      <th className="text-right p-4 tracking-widest">Audits</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sellerSummary.map((s) => (
+                      <tr key={s.id} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                              <UserIcon size={14} className="text-primary" />
+                            </div>
+                            <span className="font-black">{s.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-right text-primary font-black">৳{s.totalSales.toLocaleString()}</td>
+                        <td className="p-4 text-right text-muted-foreground">{s.salesCount}</td>
+                        <td className="p-4 text-right text-secondary font-black">৳{s.totalJoma.toLocaleString()}</td>
+                        <td className="p-4 text-right">
+                          <span className={s.totalDue > 0 ? 'text-destructive' : 'text-muted-foreground'}>
+                            ৳{s.totalDue.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right text-muted-foreground">৳{s.totalCashbox.toLocaleString()}</td>
+                        <td className="p-4 text-right text-muted-foreground">{s.auditCount}</td>
+                      </tr>
+                    ))}
+                    {sellerSummary.length === 0 && (
+                      <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No seller data yet.</td></tr>
+                    )}
+                  </tbody>
+                  {sellerSummary.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t-2 border-border bg-muted/20">
+                        <td className="p-4 font-black text-muted-foreground">TOTAL</td>
+                        <td className="p-4 text-right text-primary font-black">৳{sellerSummary.reduce((a, s) => a + s.totalSales, 0).toLocaleString()}</td>
+                        <td className="p-4 text-right text-muted-foreground">{sellerSummary.reduce((a, s) => a + s.salesCount, 0)}</td>
+                        <td className="p-4 text-right text-secondary font-black">৳{sellerSummary.reduce((a, s) => a + s.totalJoma, 0).toLocaleString()}</td>
+                        <td className="p-4 text-right text-destructive font-black">৳{sellerSummary.reduce((a, s) => a + s.totalDue, 0).toLocaleString()}</td>
+                        <td className="p-4 text-right text-muted-foreground">৳{sellerSummary.reduce((a, s) => a + s.totalCashbox, 0).toLocaleString()}</td>
+                        <td className="p-4 text-right text-muted-foreground">{sellerSummary.reduce((a, s) => a + s.auditCount, 0)}</td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
               </div>
             </CardContent>
           </Card>
@@ -1068,6 +1215,41 @@ export function AdminDashboard() {
               </p>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Edit Record Dialog */}
+      <Dialog open={!!editingAdminRecord} onOpenChange={() => setEditingAdminRecord(null)}>
+        <DialogContent className="glass-morphism border-t-4 border-secondary max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <Edit3 className="text-secondary" size={16} />
+              Edit {editingAdminRecord?.type === 'sale' ? 'Sale' : 'Expense'} Record
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {editingAdminRecord?.type === 'expense' && (
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description</Label>
+                <Input value={editAdminDesc} onChange={(e) => setEditAdminDesc(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl" />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                {editingAdminRecord?.type === 'sale' ? 'Sale Total (৳)' : 'Amount (৳)'}
+              </Label>
+              <Input type="number" value={editAdminValue} onChange={(e) => setEditAdminValue(e.target.value)} className="bg-muted border-border font-black h-12 rounded-xl text-secondary" />
+            </div>
+            <div className="bg-secondary/5 border border-secondary/20 p-3 rounded-xl flex gap-2 items-start">
+              <AlertTriangle className="text-secondary shrink-0 mt-0.5" size={14} />
+              <p className="text-[9px] font-bold text-muted-foreground uppercase leading-relaxed">Changes are logged with your identity and timestamp.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleAdminUpdateRecord} className="w-full bg-secondary py-6 rounded-2xl font-black uppercase tracking-widest shadow-xl">
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
