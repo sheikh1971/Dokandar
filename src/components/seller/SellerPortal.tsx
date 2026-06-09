@@ -290,7 +290,7 @@ export function SellerPortal() {
     setQuickItemPrice("");
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (!firestore || !user || isCheckoutSubmitting) return;
     setIsCheckoutSubmitting(true);
     const total = cart.reduce((a, b) => a + b.price * b.qty, 0);
@@ -302,20 +302,18 @@ export function SellerPortal() {
       sellerName: user.displayName || user.email?.split('@')[0] || "Staff"
     };
 
-    addDoc(collection(firestore, "sales"), saleData)
-      .then(() => {
-        toast({ title: "Sale Recorded", description: `৳${total.toLocaleString()} confirmed.` });
-        setCart([]);
-      })
-      .catch(async () => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({
-          path: "sales", operation: "create", requestResourceData: saleData
-        }));
-      })
-      .finally(() => setIsCheckoutSubmitting(false));
+    // Reset UI immediately — Firebase queues the write locally when offline
+    addDoc(collection(firestore, "sales"), saleData).catch(() => {
+      errorEmitter.emit("permission-error", new FirestorePermissionError({
+        path: "sales", operation: "create", requestResourceData: saleData
+      }));
+    });
+    toast({ title: "Sale Recorded", description: `৳${total.toLocaleString()} saved.` });
+    setCart([]);
+    setIsCheckoutSubmitting(false);
   };
 
-  const handleSubmitExpense = async () => {
+  const handleSubmitExpense = () => {
     if (!firestore || !user || !expenseAmount || isExpenseSubmitting) return;
     setIsExpenseSubmitting(true);
     const expenseData = {
@@ -326,21 +324,18 @@ export function SellerPortal() {
       sellerId: user.uid
     };
 
-    addDoc(collection(firestore, "expenses"), expenseData)
-      .then(() => {
-        toast({ title: "Expense Saved", description: "Ledger updated." });
-        setExpenseDesc("");
-        setExpenseAmount("");
-      })
-      .catch(async () => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({
-          path: "expenses", operation: "create", requestResourceData: expenseData
-        }));
-      })
-      .finally(() => setIsExpenseSubmitting(false));
+    addDoc(collection(firestore, "expenses"), expenseData).catch(() => {
+      errorEmitter.emit("permission-error", new FirestorePermissionError({
+        path: "expenses", operation: "create", requestResourceData: expenseData
+      }));
+    });
+    toast({ title: "Expense Saved", description: "Ledger updated." });
+    setExpenseDesc("");
+    setExpenseAmount("");
+    setIsExpenseSubmitting(false);
   };
 
-  const handleSubmitDailyAudit = async () => {
+  const handleSubmitDailyAudit = () => {
     if (!firestore || !user || !cashbox) return;
     setIsAccountSubmitting(true);
     const auditData = {
@@ -352,19 +347,16 @@ export function SellerPortal() {
       sellerName: user.displayName || user.email?.split('@')[0] || "Staff"
     };
 
-    addDoc(collection(firestore, "account_logs"), auditData)
-      .then(() => {
-        toast({ title: "Audit Submitted", description: "Daily cash records synchronized." });
-        setCashbox("");
-        setJoma("");
-        setDue("");
-      })
-      .catch(async () => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({
-          path: "account_logs", operation: "create", requestResourceData: auditData
-        }));
-      })
-      .finally(() => setIsAccountSubmitting(false));
+    addDoc(collection(firestore, "account_logs"), auditData).catch(() => {
+      errorEmitter.emit("permission-error", new FirestorePermissionError({
+        path: "account_logs", operation: "create", requestResourceData: auditData
+      }));
+    });
+    toast({ title: "Audit Submitted", description: "Saved locally — will sync when online." });
+    setCashbox("");
+    setJoma("");
+    setDue("");
+    setIsAccountSubmitting(false);
   };
 
   const handleAddProduct = () => {
@@ -417,7 +409,7 @@ export function SellerPortal() {
       });
   };
 
-  const handleAddPastEntry = async () => {
+  const handleAddPastEntry = () => {
     if (!firestore || !user || !pastEntryAmount || !pastEntryDesc) return;
     const isSale = pastEntryType === "sale";
     const collectionName = isSale ? "sales" : "expenses";
@@ -435,16 +427,13 @@ export function SellerPortal() {
       sellerId: user.uid
     };
 
-    addDoc(collection(firestore, collectionName), entryData)
-      .then(() => {
-        toast({ title: "Audit Success", description: "Record backfilled." });
-        setIsPastEntryOpen(false);
-      })
-      .catch(async () => {
-        errorEmitter.emit("permission-error", new FirestorePermissionError({
-          path: collectionName, operation: "create", requestResourceData: entryData
-        }));
-      });
+    addDoc(collection(firestore, collectionName), entryData).catch(() => {
+      errorEmitter.emit("permission-error", new FirestorePermissionError({
+        path: collectionName, operation: "create", requestResourceData: entryData
+      }));
+    });
+    toast({ title: "Audit Success", description: "Record backfilled." });
+    setIsPastEntryOpen(false);
   };
 
   const handleDeleteRecord = async (type: string, id: string) => {
