@@ -94,6 +94,16 @@ export function SellerPortal() {
   const [editingStockId, setEditingStockId] = useState<string | null>(null);
   const [editStockValue, setEditStockValue] = useState("");
 
+  // Submit loading states (prevent double-tap)
+  const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false);
+  const [isExpenseSubmitting, setIsExpenseSubmitting] = useState(false);
+
+  // Delete confirmation state
+  const [pendingDelete, setPendingDelete] = useState<{ type: string; id: string } | null>(null);
+
+  // Edit description (for expenses)
+  const [editDescription, setEditDescription] = useState("");
+
   // Manual Past Entry State (Ledger tab)
   const [isPastEntryOpen, setIsPastEntryOpen] = useState(false);
   const [pastEntryDate, setPastEntryDate] = useState<Date>(new Date());
@@ -281,7 +291,8 @@ export function SellerPortal() {
   };
 
   const handleCheckout = async () => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || isCheckoutSubmitting) return;
+    setIsCheckoutSubmitting(true);
     const total = cart.reduce((a, b) => a + b.price * b.qty, 0);
     const saleData = {
       items: cart,
@@ -300,11 +311,13 @@ export function SellerPortal() {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
           path: "sales", operation: "create", requestResourceData: saleData
         }));
-      });
+      })
+      .finally(() => setIsCheckoutSubmitting(false));
   };
 
   const handleSubmitExpense = async () => {
-    if (!firestore || !user || !expenseAmount) return;
+    if (!firestore || !user || !expenseAmount || isExpenseSubmitting) return;
+    setIsExpenseSubmitting(true);
     const expenseData = {
       description: expenseDesc,
       amount: parseFloat(expenseAmount),
@@ -323,7 +336,8 @@ export function SellerPortal() {
         errorEmitter.emit("permission-error", new FirestorePermissionError({
           path: "expenses", operation: "create", requestResourceData: expenseData
         }));
-      });
+      })
+      .finally(() => setIsExpenseSubmitting(false));
   };
 
   const handleSubmitDailyAudit = async () => {
@@ -451,14 +465,16 @@ export function SellerPortal() {
     const ref = doc(firestore, type, editingRecord.id);
     const val = parseFloat(editValue);
     
-    let updates: any = { 
-      updatedAt: serverTimestamp(), 
+    let updates: any = {
+      updatedAt: serverTimestamp(),
       updatedBy: user.email,
       timestamp: Timestamp.fromDate(editDate)
     };
     if (type === "sales") updates.total = val;
-    else if (type === "expenses") updates.amount = val;
-    else if (type === "account_logs") {
+    else if (type === "expenses") {
+      updates.amount = val;
+      if (editDescription.trim()) updates.description = editDescription.trim();
+    } else if (type === "account_logs") {
        updates.cashbox = val;
     }
 
@@ -637,7 +653,9 @@ export function SellerPortal() {
                   <div className="flex justify-between text-xl md:text-2xl font-black tracking-tighter">
                     <span>{t.total}</span><span className="text-primary">৳{cart.reduce((a, b) => a + b.price * b.qty, 0).toLocaleString()}</span>
                   </div>
-                  <Button className="w-full bg-primary py-6 md:py-8 rounded-2xl shadow-xl font-black uppercase tracking-widest" disabled={cart.length === 0} onClick={handleCheckout}>{t.checkout}</Button>
+                  <Button className="w-full bg-primary py-6 md:py-8 rounded-2xl shadow-xl font-black uppercase tracking-widest" disabled={cart.length === 0 || isCheckoutSubmitting} onClick={handleCheckout}>
+                    {isCheckoutSubmitting ? <Loader2 className="animate-spin" /> : t.checkout}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -680,8 +698,8 @@ export function SellerPortal() {
                     </Select>
                   </div>
                 </div>
-                <Button onClick={handleSubmitExpense} className="w-full bg-destructive text-destructive-foreground font-black py-8 rounded-2xl hover:bg-destructive/90 uppercase tracking-widest shadow-lg">
-                  <Plus className="mr-2" size={16} /> {t.submit}
+                <Button onClick={handleSubmitExpense} disabled={isExpenseSubmitting} className="w-full bg-destructive text-destructive-foreground font-black py-8 rounded-2xl hover:bg-destructive/90 uppercase tracking-widest shadow-lg">
+                  {isExpenseSubmitting ? <Loader2 className="animate-spin" /> : <><Plus className="mr-2" size={16} /> {t.submit}</>}
                 </Button>
               </CardContent>
             </Card>
@@ -928,12 +946,13 @@ export function SellerPortal() {
                         )}
 
                         <div className="flex gap-2 justify-end">
-                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-secondary hover:bg-secondary/10 rounded-lg px-3" onClick={() => { 
-                            setEditingRecord(record); 
+                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-secondary hover:bg-secondary/10 rounded-lg px-3" onClick={() => {
+                            setEditingRecord(record);
                             setEditValue((record.total || record.amount || record.cashbox).toString());
                             setEditDate(record.timestamp?.toDate() || new Date());
+                            setEditDescription(record.description || "");
                           }}>Edit</Button>
-                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 rounded-lg px-3" onClick={() => handleDeleteRecord(record.type, record.id)}>Delete</Button>
+                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 rounded-lg px-3" onClick={() => setPendingDelete({ type: record.type, id: record.id })}>Delete</Button>
                         </div>
                       </div>
                     ))}
@@ -1011,6 +1030,29 @@ export function SellerPortal() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!pendingDelete} onOpenChange={() => setPendingDelete(null)}>
+        <DialogContent className="glass-morphism border-t-4 border-destructive max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <AlertCircle className="text-destructive" size={16} /> Confirm Delete
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[11px] font-bold text-muted-foreground uppercase leading-relaxed py-2">
+            This record will be permanently removed. This cannot be undone.
+          </p>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setPendingDelete(null)} className="flex-1 font-black uppercase text-[10px] rounded-xl h-12">Cancel</Button>
+            <Button
+              onClick={() => { if (pendingDelete) { handleDeleteRecord(pendingDelete.type, pendingDelete.id); setPendingDelete(null); } }}
+              className="flex-1 bg-destructive text-destructive-foreground font-black uppercase text-[10px] rounded-xl h-12"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!editingRecord} onOpenChange={() => setEditingRecord(null)}>
         <DialogContent className="glass-morphism border-t-4 border-secondary">
           <DialogHeader><DialogTitle className="text-sm font-black uppercase tracking-widest">Adjust Verified Entry</DialogTitle></DialogHeader>
@@ -1029,6 +1071,12 @@ export function SellerPortal() {
                 </PopoverContent>
               </Popover>
             </div>
+            {editingRecord?.type === 'expense' && (
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground">Description</Label>
+                <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="bg-muted font-black h-12 rounded-xl" />
+              </div>
+            )}
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-muted-foreground">
                 {editingRecord?.type === 'audit' ? 'Rectified Cashbox Amount (৳)' : 'New Rectified Amount (৳)'}
