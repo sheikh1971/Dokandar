@@ -10,16 +10,21 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (error: FirestorePermissionError) => {
-      // Display error to user via toast notification
-      toast({
-        variant: 'destructive',
-        title: 'Permission Denied',
-        description: `You don't have permission to ${error.context.operation} at ${error.context.path}.`,
-      });
-      
-      // Log error for debugging without throwing to prevent unhandled exception
+      // Silently log permission errors without showing to avoid spamming user
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Firebase Permission Error:', error);
+        console.warn('Firebase Permission Error:', error.context);
+      }
+      
+      // Only show toast for critical operations (create, update, delete)
+      // Skip for read operations (list, get) to avoid UI spam
+      const criticalOps = ['create', 'update', 'delete'];
+      if (criticalOps.includes(error.context.operation)) {
+        toast({
+          variant: 'destructive',
+          title: 'Operation Failed',
+          description: `Unable to ${error.context.operation} data. Please try again.`,
+          duration: 3000,
+        });
       }
     };
 
