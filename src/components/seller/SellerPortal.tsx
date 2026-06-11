@@ -38,7 +38,9 @@ import {
   Eye,
   ArrowRight,
   Target,
-  User
+  User,
+  Receipt,
+  Tags
 } from "lucide-react";
 import { ProfileTab } from "@/components/shared/ProfileTab";
 import { useToast } from "@/hooks/use-toast";
@@ -168,7 +170,7 @@ export function SellerPortal() {
     const todayTotal = (sellerSales || []).filter(s => {
       const ts = s.timestamp as Timestamp;
       return ts && isAfter(ts.toDate(), today);
-    }).reduce((acc, s) => acc + (s.total || 0), 0);
+    }).reduce((acc, s) => acc + (Number(s.total) || 0), 0);
 
     return {
       todayTotal,
@@ -176,9 +178,9 @@ export function SellerPortal() {
         const ts = s.timestamp as Timestamp;
         return ts && isAfter(ts.toDate(), today);
       }).length,
-      weekRevenue: recentSales.reduce((acc, s) => acc + (s.total || 0), 0),
-      weekExpenses: recentExpenses.reduce((acc, e) => acc + (e.amount || 0), 0),
-      netProfit: recentSales.reduce((acc, s) => acc + (s.total || 0), 0) - recentExpenses.reduce((acc, e) => acc + (e.amount || 0), 0),
+      weekRevenue: recentSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0),
+      weekExpenses: recentExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0),
+      netProfit: recentSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0) - recentExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0),
       recentSales,
       recentExpenses,
       recentAudits
@@ -226,7 +228,11 @@ export function SellerPortal() {
       selectDate: "তারিখ নির্বাচন করুন",
       dailyMission: "আজকের লক্ষ্য",
       thresholdText: "ন্যূনতম খরচ তোলার লক্ষ্য",
-      profile: "প্রোফাইল"
+      profile: "প্রোফাইল",
+      myExpenses: "আমার খরচ",
+      expenseHistory: "খরচের তালিকা",
+      allTimeExpenses: "সর্বমোট খরচ",
+      noExpenses: "এখনো কোনো খরচ যুক্ত করা হয়নি।"
     },
     en: {
       sales: "Daily Sales",
@@ -258,7 +264,11 @@ export function SellerPortal() {
       selectDate: "Select Date",
       dailyMission: "Today's Mission",
       thresholdText: "Target to cover daily expenses",
-      profile: "Profile"
+      profile: "Profile",
+      myExpenses: "My Expenses",
+      expenseHistory: "Expense History",
+      allTimeExpenses: "All-Time Expenses",
+      noExpenses: "No expenses recorded yet."
     }
   }[lang];
 
@@ -487,8 +497,21 @@ export function SellerPortal() {
       ...(stats.recentExpenses || []).map(e => ({ ...e, type: 'expense' })),
       ...(stats.recentAudits || []).map(l => ({ ...l, type: 'audit' }))
     ];
-    return list.sort((a, b) => (b.timestamp as any)?.toDate() - (a.timestamp as any)?.toDate());
+    return list.sort((a: any, b: any) => (b.timestamp)?.toDate() - (a.timestamp)?.toDate());
   }, [stats.recentSales, stats.recentExpenses, stats.recentAudits]);
+
+  // All expenses this seller has ever added, newest first
+  const allExpenses = useMemo(() => {
+    return (sellerExpenses || []).slice().sort((a, b) => {
+      const ta = (a.timestamp as Timestamp)?.toDate?.()?.getTime() ?? 0;
+      const tb = (b.timestamp as Timestamp)?.toDate?.()?.getTime() ?? 0;
+      return tb - ta;
+    });
+  }, [sellerExpenses]);
+
+  const totalAllExpenses = useMemo(() => {
+    return allExpenses.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+  }, [allExpenses]);
 
   // Derived data for detail view
   const auditDetailData = useMemo(() => {
@@ -559,7 +582,7 @@ export function SellerPortal() {
       </div>
 
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="fixed inset-x-0 bottom-0 z-40 grid w-full grid-cols-5 gap-0 rounded-none border-t border-border bg-card p-0 pb-[env(safe-area-inset-bottom)] h-16 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] md:static md:h-14 md:gap-1 md:rounded-2xl md:border md:bg-muted md:p-1 md:pb-1 md:shadow-none">
+        <TabsList className="fixed inset-x-0 bottom-0 z-40 grid w-full grid-cols-6 gap-0 rounded-none border-t border-border bg-card p-0 pb-[env(safe-area-inset-bottom)] h-16 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] md:static md:h-14 md:gap-1 md:rounded-2xl md:border md:bg-muted md:p-1 md:pb-1 md:shadow-none">
           <TabsTrigger value="sales" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
             <ShoppingCart className="h-5 w-5 md:h-[15px] md:w-[15px]" />
             <span className="leading-none">{lang === "bn" ? "বিক্রি" : "Sales"}</span>
@@ -567,6 +590,10 @@ export function SellerPortal() {
           <TabsTrigger value="expenses" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
             <Banknote className="h-5 w-5 md:h-[15px] md:w-[15px]" />
             <span className="leading-none">{lang === "bn" ? "খরচ" : "Expense"}</span>
+          </TabsTrigger>
+          <TabsTrigger value="expense_history" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+            <Receipt className="h-5 w-5 md:h-[15px] md:w-[15px]" />
+            <span className="leading-none">{t.myExpenses}</span>
           </TabsTrigger>
           <TabsTrigger value="inventory" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
             <Package className="h-5 w-5 md:h-[15px] md:w-[15px]" />
@@ -772,6 +799,60 @@ export function SellerPortal() {
           </div>
         </TabsContent>
 
+        <TabsContent value="expense_history">
+          <div className="space-y-6 max-w-3xl mx-auto">
+            <div className="grid grid-cols-2 gap-4">
+              <LedgerStatCard label={lang === "bn" ? "৭ দিনের খরচ" : "7D Expenses"} value={stats.weekExpenses} icon={<TrendingDown />} color="destructive" />
+              <LedgerStatCard label={t.allTimeExpenses} value={totalAllExpenses} icon={<Banknote />} color="destructive" />
+            </div>
+
+            <Card className="glass-morphism border-t-4 border-destructive shadow-xl overflow-hidden">
+              <CardHeader className="border-b bg-destructive/5 py-4">
+                <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                  <Receipt className="text-destructive" size={18} /> {t.expenseHistory}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="max-h-[600px] overflow-y-auto">
+                  {allExpenses.map((exp: any) => (
+                    <div key={exp.id} className="flex flex-col p-5 border-b border-border/30 hover:bg-muted/30 transition-all">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-11 h-11 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+                            <Banknote size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-black uppercase tracking-tight truncate">{exp.description || exp.category}</p>
+                              {exp.updatedAt && <span className="text-[8px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-black border border-secondary/20 flex items-center gap-1 shrink-0"><Edit3 size={8} /> MODIFIED</span>}
+                            </div>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-1.5 flex-wrap">
+                              <Tags size={10} /> {exp.category} | <CalendarIcon size={10} /> {exp.timestamp?.toDate ? exp.timestamp.toDate().toLocaleString() : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-lg font-black text-destructive tracking-tighter shrink-0">৳{(Number(exp.amount) || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="flex gap-2 justify-end mt-3">
+                        <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-secondary hover:bg-secondary/10 rounded-lg px-3" onClick={() => {
+                          setEditingRecord({ ...exp, type: 'expense' });
+                          setEditValue(String(exp.amount ?? 0));
+                          setEditDate(exp.timestamp?.toDate ? exp.timestamp.toDate() : new Date());
+                          setEditDescription(exp.description || "");
+                        }}>{t.edit}</Button>
+                        <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-destructive hover:bg-destructive/10 rounded-lg px-3" onClick={() => setPendingDelete({ type: 'expense', id: exp.id })}>{t.delete}</Button>
+                      </div>
+                    </div>
+                  ))}
+                  {!allExpenses.length && (
+                    <p className="text-center py-12 text-[10px] uppercase font-bold text-muted-foreground">{t.noExpenses}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         <TabsContent value="inventory" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="glass-morphism border-t-4 border-primary">
@@ -908,7 +989,7 @@ export function SellerPortal() {
                           <div className="text-right">
                              {record.type !== 'audit' ? (
                                <p className={`text-lg font-black tracking-tighter ${record.type === 'sale' ? 'text-primary' : 'text-destructive'}`}>
-                                 ৳{(record.total || record.amount).toLocaleString()}
+                                 ৳{(Number(record.total ?? record.amount ?? 0)).toLocaleString()}
                                </p>
                              ) : (
                                <div className="flex items-center gap-2 bg-secondary/5 px-3 py-1 rounded-full border border-secondary/10">
@@ -945,7 +1026,7 @@ export function SellerPortal() {
                         <div className="flex gap-2 justify-end">
                           <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase text-secondary hover:bg-secondary/10 rounded-lg px-3" onClick={() => {
                             setEditingRecord(record);
-                            setEditValue((record.total || record.amount || record.cashbox).toString());
+                            setEditValue(String(record.total ?? record.amount ?? record.cashbox ?? 0));
                             setEditDate(record.timestamp?.toDate() || new Date());
                             setEditDescription(record.description || "");
                           }}>Edit</Button>
