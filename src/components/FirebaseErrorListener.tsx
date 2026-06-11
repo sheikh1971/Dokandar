@@ -10,15 +10,17 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (error: FirestorePermissionError) => {
-      // Do not use console.error here as it's handled by the global error overlay
+      // Display error to user via toast notification
       toast({
         variant: 'destructive',
         title: 'Permission Denied',
         description: `You don't have permission to ${error.context.operation} at ${error.context.path}.`,
       });
       
-      // Throwing ensures the rich contextual error is surfaced to the developer overlay
-      throw error;
+      // Log error for debugging without throwing to prevent unhandled exception
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Firebase Permission Error:', error);
+      }
     };
 
     errorEmitter.on('permission-error', handleError);
