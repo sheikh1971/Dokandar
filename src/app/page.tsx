@@ -8,34 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { 
-  Zap, 
-  LogOut, 
-  Mail, 
-  Lock, 
-  Loader2, 
-  ShieldAlert, 
-  User as UserIcon, 
-  LogIn, 
+import {
+  Zap,
+  Mail,
+  Lock,
+  Loader2,
+  ShieldAlert,
+  LogIn,
   ShieldCheck,
   Building2,
   Users,
   Key,
   Fingerprint,
   LockKeyhole,
-  Chrome,
-  Settings
+  Chrome
 } from "lucide-react";
-import { 
-  DropdownMenu, 
-  DropdownMenuTrigger, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator 
-} from "@/components/ui/dropdown-menu";
-import { Dialog } from "@/components/ui/dialog";
-import { ProfileSettings } from "@/components/shared/ProfileSettings";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import {
   signOut,
@@ -94,7 +81,6 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [authRole, setAuthRole] = useState<"admin" | "seller">("seller");
   const [isSignUp, setIsSignUp] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const userProfileQuery = useMemo(() => {
     if (!firestore || !user) return null;
@@ -411,38 +397,13 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3 pl-4 border-l border-border">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-3 p-2 h-auto rounded-2xl hover:bg-muted/50 transition-all border border-transparent hover:border-border group">
-                <div className="hidden md:flex flex-col items-end">
-                  <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.displayName || user.email?.split('@')[0]}</span>
-                  <span className={`text-[9px] uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${profile?.role === 'admin' ? 'text-secondary bg-secondary/5 border-secondary/10' : 'text-primary bg-primary/5 border-primary/10'}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
-                    {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
-                  </span>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center border border-border group-hover:border-primary/30 transition-all">
-                  <UserIcon size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                </div>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 glass-morphism rounded-2xl border-border p-2 mt-2 shadow-2xl animate-in zoom-in-95 duration-200">
-              <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4 py-3">Security Terminal</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-border/50 mx-2" />
-              <DropdownMenuItem
-                onSelect={(e) => { e.preventDefault(); setIsProfileOpen(true); }}
-                className="rounded-xl font-black text-[10px] uppercase tracking-widest p-4 cursor-pointer hover:bg-primary/10 hover:text-primary transition-all flex items-center gap-3"
-              >
-                <Settings size={16} /> Profile & Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout} className="rounded-xl font-black text-[10px] uppercase tracking-widest p-4 cursor-pointer text-destructive hover:bg-destructive/10 transition-all flex items-center gap-3 mt-1">
-                <LogOut size={16} /> Terminate Session
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-            <ProfileSettings />
-          </Dialog>
+          <div className="hidden md:flex flex-col items-end">
+            <span className="text-xs font-black leading-none uppercase tracking-tighter">{user.displayName || user.email?.split('@')[0]}</span>
+            <span className={`text-[9px] uppercase font-black mt-1.5 tracking-[0.2em] flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${profile?.role === 'admin' ? 'text-secondary bg-secondary/5 border-secondary/10' : 'text-primary bg-primary/5 border-primary/10'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${profile?.role === 'admin' ? 'bg-secondary' : 'bg-primary'} animate-pulse`} />
+              {profile?.role === 'admin' ? 'SUPER ADMIN' : 'SELLER'}
+            </span>
+          </div>
         </div>
       </header>
 
