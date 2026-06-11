@@ -37,8 +37,10 @@ import {
   ClipboardCheck,
   Eye,
   ArrowRight,
-  Target
+  Target,
+  User
 } from "lucide-react";
+import { ProfileTab } from "@/components/shared/ProfileTab";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, useCollection } from "@/firebase";
 import { collection, addDoc, serverTimestamp, query, orderBy, deleteDoc, doc, where, Timestamp, updateDoc } from "firebase/firestore";
@@ -223,7 +225,8 @@ export function SellerPortal() {
       due: "বাকি",
       selectDate: "তারিখ নির্বাচন করুন",
       dailyMission: "আজকের লক্ষ্য",
-      thresholdText: "ন্যূনতম খরচ তোলার লক্ষ্য"
+      thresholdText: "ন্যূনতম খরচ তোলার লক্ষ্য",
+      profile: "প্রোফাইল"
     },
     en: {
       sales: "Daily Sales",
@@ -254,7 +257,8 @@ export function SellerPortal() {
       due: "Due",
       selectDate: "Select Date",
       dailyMission: "Today's Mission",
-      thresholdText: "Target to cover daily expenses"
+      thresholdText: "Target to cover daily expenses",
+      profile: "Profile"
     }
   }[lang];
 
@@ -555,22 +559,26 @@ export function SellerPortal() {
       </div>
 
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-muted border border-border p-1 h-12 md:h-14 rounded-2xl">
-          <TabsTrigger value="sales" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex flex-col md:flex-row items-center gap-0.5 md:gap-2 py-1">
-            <ShoppingCart size={15} />
+        <TabsList className="fixed inset-x-0 bottom-0 z-40 grid w-full grid-cols-5 gap-0 rounded-none border-t border-border bg-card p-0 pb-[env(safe-area-inset-bottom)] h-16 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] md:static md:h-14 md:gap-1 md:rounded-2xl md:border md:bg-muted md:p-1 md:pb-1 md:shadow-none">
+          <TabsTrigger value="sales" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+            <ShoppingCart className="h-5 w-5 md:h-[15px] md:w-[15px]" />
             <span className="leading-none">{lang === "bn" ? "বিক্রি" : "Sales"}</span>
           </TabsTrigger>
-          <TabsTrigger value="expenses" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex flex-col md:flex-row items-center gap-0.5 md:gap-2 py-1">
-            <Banknote size={15} />
+          <TabsTrigger value="expenses" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+            <Banknote className="h-5 w-5 md:h-[15px] md:w-[15px]" />
             <span className="leading-none">{lang === "bn" ? "খরচ" : "Expense"}</span>
           </TabsTrigger>
-          <TabsTrigger value="inventory" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex flex-col md:flex-row items-center gap-0.5 md:gap-2 py-1">
-            <Package size={15} />
+          <TabsTrigger value="inventory" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+            <Package className="h-5 w-5 md:h-[15px] md:w-[15px]" />
             <span className="leading-none">{lang === "bn" ? "স্টক" : "Stock"}</span>
           </TabsTrigger>
-          <TabsTrigger value="ledger" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex flex-col md:flex-row items-center gap-0.5 md:gap-2 py-1">
-            <History size={15} />
+          <TabsTrigger value="ledger" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+            <History className="h-5 w-5 md:h-[15px] md:w-[15px]" />
             <span className="leading-none">{lang === "bn" ? "হিসাব" : "Ledger"}</span>
+          </TabsTrigger>
+          <TabsTrigger value="profile" className="relative flex h-full flex-col items-center justify-center gap-1 rounded-none font-black text-[9px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:flex-row md:gap-2 md:rounded-xl md:py-1 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+            <User className="h-5 w-5 md:h-[15px] md:w-[15px]" />
+            <span className="leading-none">{t.profile}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -949,6 +957,10 @@ export function SellerPortal() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="profile">
+          <ProfileTab lang={lang} role="seller" />
         </TabsContent>
       </Tabs>
 

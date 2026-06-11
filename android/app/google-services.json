@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "558730936790-pkrh0l6s476kc2442q0jrvag06e6ajvk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dokandar.app",
+            "certificate_hash": "4600144adc73e7a3ea9b783fa7ee036ba1a3bdf6"
+          }
+        },
+        {
           "client_id": "558730936790-4jjkrt6vrqra7thd6kti5rhq7gpgudpn.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -37,14 +37,17 @@ import {
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { ProfileSettings } from "@/components/shared/ProfileSettings";
 import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
-import { 
-  signOut, 
-  signInWithEmailAndPassword, 
+import {
+  signOut,
+  signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  signInWithCredential
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import { useToast } from "@/hooks/use-toast";
 
 function getAuthErrorMessage(error: any): string {
@@ -145,11 +148,26 @@ export default function Home() {
   const handleGoogleAuth = async () => {
     if (!auth || !firestore) return;
     setIsAuthenticating(true);
-    const provider = new GoogleAuthProvider();
 
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      let user;
+
+      if (Capacitor.isNativePlatform()) {
+        // Use the native Google Sign-In flow on Android/iOS, then exchange the
+        // resulting credential with the Firebase JS SDK (signInWithPopup/redirect
+        // don't work inside the app's WebView).
+        const { credential } = await FirebaseAuthentication.signInWithGoogle();
+        if (!credential?.idToken) {
+          throw new Error("No ID token returned from Google sign-in.");
+        }
+        const authCredential = GoogleAuthProvider.credential(credential.idToken, credential.accessToken);
+        const userCred = await signInWithCredential(auth, authCredential);
+        user = userCred.user;
+      } else {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        user = result.user;
+      }
 
       // Check if profile exists
       const docRef = doc(firestore, "users", user.uid);
@@ -426,7 +444,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="p-3 md:p-6">
+      <main className="p-3 pb-24 md:p-6">
         <div className="max-w-7xl mx-auto">
           {profile?.role === 'admin' ? (
             <AdminDashboard />

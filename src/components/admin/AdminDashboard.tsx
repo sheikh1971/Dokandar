@@ -72,11 +72,13 @@ import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { FirestorePermissionError, type SecurityRuleContext } from "@/firebase/errors";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { useToast } from "@/hooks/use-toast";
+import { ProfileTab } from "@/components/shared/ProfileTab";
 
 type AnalysisPeriod = "weekly" | "monthly" | "yearly" | "all";
 
 export function AdminDashboard() {
   const { toast } = useToast();
+  const [lang, setLang] = useState<"bn" | "en">("en");
   const [period, setPeriod] = useState<AnalysisPeriod>("monthly");
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -521,6 +523,9 @@ export function AdminDashboard() {
             <BrainCircuit size={16} className="md:mr-2" />
             <span className="hidden md:inline">{isAiLoading ? "Processing..." : "Neural Forecast"}</span>
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setLang(lang === "bn" ? "en" : "bn")} className="rounded-2xl font-black text-[9px] uppercase border-border h-10 px-4 shrink-0">
+            {lang === "bn" ? "EN" : "বাং"}
+          </Button>
         </div>
       </div>
 
@@ -542,15 +547,40 @@ export function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
-        <div className="overflow-x-auto w-full pb-1 -mx-0">
-          <TabsList className="bg-muted border border-border p-1 h-11 md:h-12 rounded-2xl inline-flex w-max min-w-full gap-0.5">
-            <TabsTrigger value="overview" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Analytics</TabsTrigger>
-            <TabsTrigger value="inventory" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Inventory</TabsTrigger>
-            <TabsTrigger value="history" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Transactions</TabsTrigger>
-            <TabsTrigger value="buy_joma" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Buy & Joma</TabsTrigger>
-            <TabsTrigger value="closing" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Ledger</TabsTrigger>
-            <TabsTrigger value="overheads" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Overheads</TabsTrigger>
-            <TabsTrigger value="sellers" className="rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap shrink-0 px-3 md:px-4 flex-1 min-w-[80px]">Sellers</TabsTrigger>
+        <div className="fixed inset-x-0 bottom-0 z-40 overflow-x-auto border-t border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_10px_rgba(0,0,0,0.06)] md:static md:-mx-0 md:w-full md:border-0 md:bg-transparent md:pb-1 md:shadow-none">
+          <TabsList className="flex h-16 w-max min-w-full gap-0 rounded-none bg-transparent p-0 md:inline-flex md:h-11 md:w-max md:gap-0.5 md:rounded-2xl md:border md:border-border md:bg-muted md:p-1 lg:h-12">
+            <TabsTrigger value="overview" className="relative flex h-16 min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-none font-black text-[8px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:min-w-[80px] md:flex-1 md:flex-row md:gap-0 md:rounded-xl md:px-4 md:py-1.5 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+              <BarChart3 className="h-5 w-5 md:hidden" />
+              <span className="leading-none">{lang === "bn" ? "এনালিটিক্স" : "Analytics"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="inventory" className="relative flex h-16 min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-none font-black text-[8px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:min-w-[80px] md:flex-1 md:flex-row md:gap-0 md:rounded-xl md:px-4 md:py-1.5 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+              <Package className="h-5 w-5 md:hidden" />
+              <span className="leading-none">{lang === "bn" ? "ইনভেন্টরি" : "Inventory"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="relative flex h-16 min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-none font-black text-[8px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:min-w-[80px] md:flex-1 md:flex-row md:gap-0 md:rounded-xl md:px-4 md:py-1.5 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+              <History className="h-5 w-5 md:hidden" />
+              <span className="leading-none">{lang === "bn" ? "লেনদেন" : "Transactions"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="buy_joma" className="relative flex h-16 min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-none font-black text-[8px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:min-w-[80px] md:flex-1 md:flex-row md:gap-0 md:rounded-xl md:px-4 md:py-1.5 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+              <ShoppingCart className="h-5 w-5 md:hidden" />
+              <span className="leading-none">{lang === "bn" ? "ক্রয় ও জমা" : "Buy & Joma"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="closing" className="relative flex h-16 min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-none font-black text-[8px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:min-w-[80px] md:flex-1 md:flex-row md:gap-0 md:rounded-xl md:px-4 md:py-1.5 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+              <Wallet className="h-5 w-5 md:hidden" />
+              <span className="leading-none">{lang === "bn" ? "হিসাব" : "Ledger"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="overheads" className="relative flex h-16 min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-none font-black text-[8px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:min-w-[80px] md:flex-1 md:flex-row md:gap-0 md:rounded-xl md:px-4 md:py-1.5 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+              <Banknote className="h-5 w-5 md:hidden" />
+              <span className="leading-none">{lang === "bn" ? "খরচ" : "Overheads"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="sellers" className="relative flex h-16 min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-none font-black text-[8px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:min-w-[80px] md:flex-1 md:flex-row md:gap-0 md:rounded-xl md:px-4 md:py-1.5 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+              <Users className="h-5 w-5 md:hidden" />
+              <span className="leading-none">{lang === "bn" ? "বিক্রেতা" : "Sellers"}</span>
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="relative flex h-16 min-w-[72px] shrink-0 flex-col items-center justify-center gap-1 rounded-none font-black text-[8px] uppercase tracking-widest text-muted-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:top-0 data-[state=active]:after:left-1/2 data-[state=active]:after:-translate-x-1/2 data-[state=active]:after:h-1 data-[state=active]:after:w-8 data-[state=active]:after:rounded-full data-[state=active]:after:bg-primary data-[state=active]:after:content-[''] md:after:hidden md:h-auto md:min-w-[80px] md:flex-1 md:flex-row md:gap-0 md:rounded-xl md:px-4 md:py-1.5 md:text-[9px] md:data-[state=active]:bg-primary md:data-[state=active]:text-primary-foreground">
+              <UserIcon className="h-5 w-5 md:hidden" />
+              <span className="leading-none">{lang === "bn" ? "প্রোফাইল" : "Profile"}</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1103,6 +1133,10 @@ export function AdminDashboard() {
                 </CardContent>
              </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="profile">
+          <ProfileTab lang={lang} role="admin" />
         </TabsContent>
       </Tabs>
 
