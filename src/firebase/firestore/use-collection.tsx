@@ -31,16 +31,17 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         setData(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as T)));
         setLoading(false);
       },
-      async (err) => {
-        // Attempt to extract a useful path for the error message
-        const path = (query as any)._query?.path?.segments?.join('/') || 'collection_query';
+      async (err: any) => {
+        // Only emit error if it's a permission error, not a network error
+        if (err?.code === 'permission-denied') {
+          const path = (query as any)._query?.path?.segments?.join('/') || 'collection_query';
+          const permissionError = new FirestorePermissionError({
+            path: path,
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        }
         
-        const permissionError = new FirestorePermissionError({
-          path: path,
-          operation: 'list',
-        });
-        
-        errorEmitter.emit('permission-error', permissionError);
         setError(err);
         setLoading(false);
       }
