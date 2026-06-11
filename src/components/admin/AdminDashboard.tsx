@@ -529,23 +529,6 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
-        <StatCard title="Revenue In" value={`৳${stats.totalRevenue.toLocaleString()}`} trend="up" icon={<DollarSign size={20} />} color="primary" />
-        <div onClick={() => setIsBurnDetailOpen(true)} className="cursor-pointer">
-          <StatCard title="Operational Burn" value={`৳${stats.totalExpenses.toLocaleString()}`} trend="down" icon={<TrendingDown size={20} />} color="destructive" />
-        </div>
-        <StatCard title="Liquidity" value={`৳${stats.netProfit.toLocaleString()}`} trend={stats.netProfit >= 0 ? "up" : "down"} icon={<TrendingUp size={20} />} color="secondary" />
-        <StatCard title="Outstanding Due" value={`৳${stats.totalDue.toLocaleString()}`} subtitle="Total owed by customers" trend="none" icon={<AlertTriangle size={20} />} color={stats.totalDue > 0 ? "destructive" : "muted"} />
-        <StatCard
-          title="Target Efficiency"
-          value={`${targetStats.progress}%`}
-          subtitle={`৳${targetStats.todaySales.toLocaleString()} / ৳${Math.round(targetStats.dailyTarget).toLocaleString()} Goal`}
-          trend={targetStats.progress >= 100 ? "up" : "none"}
-          icon={<Target size={20} />}
-          color={targetStats.progress >= 100 ? "primary" : "secondary"}
-        />
-      </div>
-
       <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
         <div className="fixed inset-x-0 bottom-0 z-40 overflow-x-auto border-t border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_10px_rgba(0,0,0,0.06)] md:static md:-mx-0 md:w-full md:border-0 md:bg-transparent md:pb-1 md:shadow-none">
           <TabsList className="flex h-16 w-max min-w-full gap-0 rounded-none bg-transparent p-0 md:inline-flex md:h-11 md:w-max md:gap-0.5 md:rounded-2xl md:border md:border-border md:bg-muted md:p-1 lg:h-12">
@@ -585,6 +568,23 @@ export function AdminDashboard() {
         </div>
 
         <TabsContent value="overview" className="space-y-4 md:space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+            <StatCard title="Revenue In" value={`৳${stats.totalRevenue.toLocaleString()}`} trend="up" icon={<DollarSign size={20} />} color="primary" />
+            <div onClick={() => setIsBurnDetailOpen(true)} className="cursor-pointer">
+              <StatCard title="Operational Burn" value={`৳${stats.totalExpenses.toLocaleString()}`} trend="down" icon={<TrendingDown size={20} />} color="destructive" />
+            </div>
+            <StatCard title="Liquidity" value={`৳${stats.netProfit.toLocaleString()}`} trend={stats.netProfit >= 0 ? "up" : "down"} icon={<TrendingUp size={20} />} color="secondary" />
+            <StatCard title="Outstanding Due" value={`৳${stats.totalDue.toLocaleString()}`} subtitle="Total owed by customers" trend="none" icon={<AlertTriangle size={20} />} color={stats.totalDue > 0 ? "destructive" : "muted"} />
+            <StatCard
+              title="Target Efficiency"
+              value={`${targetStats.progress}%`}
+              subtitle={`৳${targetStats.todaySales.toLocaleString()} / ৳${Math.round(targetStats.dailyTarget).toLocaleString()} Goal`}
+              trend={targetStats.progress >= 100 ? "up" : "none"}
+              icon={<Target size={20} />}
+              color={targetStats.progress >= 100 ? "primary" : "secondary"}
+            />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             <Card className="lg:col-span-2 glass-morphism border-t-4 border-primary">
               <CardHeader><CardTitle className="text-sm font-black text-primary uppercase tracking-widest">Business Scenario Analysis</CardTitle></CardHeader>
